@@ -116,6 +116,7 @@ async def tea_likes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
             await query.edit_message_text(f"Вот ваш комментарий, проверьте перед отправкой, в дальнейшем его нельзя будет изменить:\n\n{formatted}", reply_markup=reply_markup, parse_mode="HTML") 
             context.user_data.pop('editing', None)  
+<<<<<<< HEAD
             return 13  # PREVIEW
         else:
             await query.edit_message_text("Отлично! А теперь напишите пару строк в произвольной форме", reply_markup=None)
@@ -124,6 +125,16 @@ async def tea_likes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # Update buttons by editing the message
     all_selected = len(selected) == len(options)
     keyboard_options = {'taste': 'ВКУС', 'aroma': 'АРОМАТ', 'feeling': 'ОЩУЩЕНИЕ О ЧАЯ'}
+=======
+            return PREVIEW
+        else:
+            await query.edit_message_text("Отлично! А теперь напишите пару строк в произвольной форме", reply_markup=None)
+            return TEA_REVIEW_TEXT
+
+    # Update buttons by editing the message
+    all_selected = len(selected) == len(options)
+    keyboard_options = {'taste': 'ВКУС', 'aroma': 'АРОМАТ', 'feeling': 'ОЩУЩЕНИЕ ОТ ЧАЯ'}
+>>>>>>> afbe91a (Initial commit from server)
     keyboard = [
         [
             InlineKeyboardButton(f"{'✅ ' if 'taste' in selected else ''}{keyboard_options['taste']}", callback_data="likes_taste"),
@@ -131,7 +142,11 @@ async def tea_likes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         ],
         [
             InlineKeyboardButton(f"{'✅ ' if 'feeling' in selected else ''}{keyboard_options['feeling']}", callback_data="likes_feeling"),
+<<<<<<< HEAD
             InlineKeyboardButton(f"{'✅ ' if all_selected else ''}Все", callback_data="likes_all"),
+=======
+            InlineKeyboardButton(f"{'✅ ' if all_selected else ''}ВСЁ", callback_data="likes_all"),
+>>>>>>> afbe91a (Initial commit from server)
         ],
         [InlineKeyboardButton("Готово", callback_data="likes_done")],
     ]
@@ -143,7 +158,11 @@ async def tea_likes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         if "Message is not modified" in str(e):
             pass  # Ignore if no change
         else:
+<<<<<<< HEAD
             logging.getLogger(__name__).error(f"Error editing likes message: {e}")
+=======
+            logger.error(f"Error editing likes message: {e}")
+>>>>>>> afbe91a (Initial commit from server)
 
     return TEA_LIKES
 
@@ -159,6 +178,10 @@ async def tea_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         'rating': context.user_data['current_rating'],
         'likes': list(context.user_data.get('current_likes', set())),
         'review_text': context.user_data['current_review_text'],
+<<<<<<< HEAD
+=======
+        'user_name': context.user_data.get('user_name', None)  # Added user_name
+>>>>>>> afbe91a (Initial commit from server)
     }
 
     # Format for preview
@@ -187,4 +210,8 @@ async def tea_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data.pop('current_likes', None)
     context.user_data.pop('current_review_text', None)
 
+<<<<<<< HEAD
     return 13  # PREVIEW
+=======
+    return PREVIEW
+>>>>>>> afbe91a (Initial commit from server)
