@@ -32,11 +32,32 @@ from form import (
 # ========================================
 # ФИКСИРОВАННЫЙ ПУТЬ К БД
 # ========================================
-DB_DIR = "/root/RB2"
-DB_PATH = os.path.join(DB_DIR, "reviews.db")
+# ========================================
+# ПУТЬ К БД (поддержка старого файла из репозитория)
+# ========================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB_PATH = os.path.join(BASE_DIR, "reviews.db")
+FALLBACK_DB_DIR = "/root/RB2"
+FALLBACK_DB_PATH = os.path.join(FALLBACK_DB_DIR, "reviews.db")
 
-# Создаём директорию, если её нет
-os.makedirs(DB_DIR, exist_ok=True)
+def resolve_db_path() -> str:
+    """Choose DB path prioritizing env override and existing legacy files."""
+    env_path = os.environ.get("RB_REVIEWS_DB")
+    if env_path:
+        resolved = os.path.abspath(env_path)
+    elif os.path.exists(DEFAULT_DB_PATH):
+        resolved = DEFAULT_DB_PATH
+    elif os.path.exists(FALLBACK_DB_PATH):
+        resolved = FALLBACK_DB_PATH
+    else:
+        resolved = DEFAULT_DB_PATH
+
+    db_dir = os.path.dirname(resolved)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    return resolved
+
+DB_PATH = resolve_db_path()
 
 # Логируем путь при запуске
 logging.basicConfig(

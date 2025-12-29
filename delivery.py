@@ -98,11 +98,7 @@ async def delivery_likes_handler(update: Update, context: ContextTypes.DEFAULT_T
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             await query.message.reply_text("Отлично! Оцените доставку по шкале", reply_markup=reply_markup)
-<<<<<<< HEAD
-            return 11 # DELIVERY_RATING
-=======
             return DELIVERY_RATING
->>>>>>> afbe91a (Initial commit from server)
 
     # Update buttons
     all_selected = len(selected) == len(options)
@@ -126,11 +122,7 @@ async def delivery_likes_handler(update: Update, context: ContextTypes.DEFAULT_T
         if "Message is not modified" in str(e):
             pass
         else:
-<<<<<<< HEAD
-            logging.getLogger(__name__).error(f"Error editing likes message: {e}")
-=======
             logger.error(f"Error editing likes message: {e}")
->>>>>>> afbe91a (Initial commit from server)
 
     return DELIVERY_LIKES
 
@@ -144,11 +136,7 @@ async def delivery_rating_handler(update: Update, context: ContextTypes.DEFAULT_
     await query.edit_message_text(f"Оценка выбрана: {rating} ({'⭐' * rating})")
 
     await query.message.reply_text("Отлично! А теперь напишите пару строк в произвольной форме")
-<<<<<<< HEAD
-    return 12 # DELIVERY_REVIEW_TEXT
-=======
     return DELIVERY_REVIEW_TEXT
->>>>>>> afbe91a (Initial commit from server)
 
 async def delivery_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the review text and shows preview (Delivery category)."""
@@ -162,10 +150,7 @@ async def delivery_review_text(update: Update, context: ContextTypes.DEFAULT_TYP
         'rating': context.user_data['current_rating'],
         'likes': list(context.user_data.get('current_likes', [])),
         'review_text': context.user_data['current_review_text'],
-<<<<<<< HEAD
-=======
         'user_name': context.user_data.get('user_name', None)  # Added user_name
->>>>>>> afbe91a (Initial commit from server)
     }
 
     # Format for preview
@@ -190,8 +175,4 @@ async def delivery_review_text(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data.pop('current_likes', None)
     context.user_data.pop('current_review_text', None)
 
-<<<<<<< HEAD
-    return 13  # PREVIEW
-=======
     return PREVIEW
->>>>>>> afbe91a (Initial commit from server)
