@@ -65,6 +65,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def main_menu_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [["История", "Оставить отзыв", "Помощь"]], resize_keyboard=True, one_time_keyboard=False
+    )
+
 # ========================================
 # Инициализация БД
 # ========================================
@@ -161,13 +167,55 @@ def _sync_pending(context: ContextTypes.DEFAULT_TYPE):
     """Копирует pending_data → pending_review, чтобы превью всегда был свежим."""
     pd = context.user_data.get('pending_data', {})
     context.user_data['pending_review'] = pd.copy()
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles /start command, shows buttons to start review or view history."""
     if update.message.chat.type != "private":
         await update.message.reply_text("Please use this bot in a private chat.")
         return
-    keyboard = ReplyKeyboardMarkup([["История", "Оставить отзыв"]], resize_keyboard=True, one_time_keyboard=False)
-    await update.message.reply_text("Приветствую! Выберите действие:", reply_markup=keyboard)
+    await update.message.reply_text("Приветствую! Выберите действие:", reply_markup=main_menu_keyboard())
+
+
+async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Shows short help with restart option."""
+    if update.message.chat.type != "private":
+        await update.message.reply_text("Пожалуйста, используйте бота в личных сообщениях.")
+        return
+    help_text = (
+        "Кратко о работе бота:\n"
+        "• «Оставить отзыв» — пройти шаги и подготовить публикацию.\n"
+        "• «История» — посмотреть ранее отправленные отзывы.\n"
+        "• В превью можно редактировать части отзыва перед отправкой.\n"
+        "Нажмите «Перезапустить», чтобы очистить текущий диалог и начать сначала."
+    )
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Перезапустить", callback_data="restart_bot")]]
+    )
+    await update.message.reply_text(help_text, reply_markup=keyboard)
+
+
+async def restart_interaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Resets conversation data and shows the main menu."""
+    query = getattr(update, "callback_query", None)
+    if query:
+        await query.answer()
+    context.user_data.clear()
+    target_message = query.message if query else update.message
+    if target_message:
+        await target_message.reply_text(
+            "Сессия сброшена. Нажмите «Оставить отзыв», чтобы начать заново.",
+            reply_markup=main_menu_keyboard(),
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Сессия сброшена. Нажмите «Оставить отзыв», чтобы начать заново.",
+            reply_markup=main_menu_keyboard(),
+        )
+    return ConversationHandler.END
+
+
 async def start_review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the review process by asking for name."""
     if update.message.chat.type != "private":
@@ -235,8 +283,7 @@ async def history_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         keyboard = [[InlineKeyboardButton("Показать больше", callback_data="show_more_history")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Показаны первые 5. Нажмите для остальных.", reply_markup=reply_markup)
-    keyboard = ReplyKeyboardMarkup([["История", "Оставить отзыв"]], resize_keyboard=True, one_time_keyboard=False)
-    await update.message.reply_text("Это ваши прошлые отзывы. Хотите оставить новый?", reply_markup=keyboard)
+    await update.message.reply_text("Это ваши прошлые отзывы. Хотите оставить новый?", reply_markup=main_menu_keyboard())
     return ConversationHandler.END
 # <<< NEW: Handler for "Show more" button (add to conv_handler states if needed)
 async def show_more_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -440,8 +487,7 @@ async def final_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == 'delete_all':
         context.user_data['reviews'] = []
         await query.edit_message_text("Все отзывы удалены.")
-        keyboard = ReplyKeyboardMarkup([["История", "Оставить отзыв"]], resize_keyboard=True, one_time_keyboard=False)
-        await query.message.reply_text("Приветствую! Выберите действие:", reply_markup=keyboard)
+        await query.message.reply_text("Приветствую! Выберите действие:", reply_markup=main_menu_keyboard())
         return ConversationHandler.END
 async def delete_specific_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handles selection of a specific review to delete."""
@@ -784,10 +830,15 @@ def main() -> None:
         },
         fallbacks=[
             CommandHandler("cancel", cancel),
+            MessageHandler(filters.Regex("Перезапустить"), restart_interaction),
+            CallbackQueryHandler(restart_interaction, pattern="^restart_bot$"),
         ],
         per_message=False,
     )
     application.add_handler(conv_handler)
+    application.add_handler(MessageHandler(filters.Regex("Помощь"), help_handler))
+    application.add_handler(MessageHandler(filters.Regex("Перезапустить"), restart_interaction))
+    application.add_handler(CallbackQueryHandler(restart_interaction, pattern="^restart_bot$"))
     # Global handler for "История" to make it work always
     application.add_handler(MessageHandler(filters.Regex("История"), history_handler))
     application.add_error_handler(error_handler)
