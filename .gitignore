@@ -4,4 +4,4 @@ __pycache__/
 .env
 Dockerfile
 *.log
-
+.DS_Store
