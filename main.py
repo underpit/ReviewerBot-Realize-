@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [["История", "Оставить отзыв", "Помощь"]], resize_keyboard=True, one_time_keyboard=False
+        [["Оставить отзыв", "История", "Помощь"]], resize_keyboard=True, one_time_keyboard=False
     )
 
 # ========================================

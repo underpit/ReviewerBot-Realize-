@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Отзыв — Mini App</title>
+  <style>
+    :root{
+      --bg: #0b0f14;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.09);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.62);
+      --hint: rgba(255,255,255,.44);
+      --border: rgba(255,255,255,.10);
+      --accent: #4ea1ff;
+      --ok: #30d158;
+      --warn: #ff9f0a;
+      --bad: #ff453a;
+
+      --radius: 18px;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --pad: 14px;
+      --gap: 12px;
+
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+    }
+
+    *{ box-sizing: border-box; }
+    html, body{ height: 100%; }
+    body{
+      margin: 0;
+      font-family: var(--font);
+      background: radial-gradient(1200px 800px at 20% -10%, rgba(78,161,255,.18), transparent 55%),
+                  radial-gradient(900px 700px at 80% 0%, rgba(48,209,88,.14), transparent 50%),
+                  var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .wrap{
+      max-width: 720px;
+      margin: 0 auto;
+      padding: calc(16px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));
+    }
+
+    .top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+    }
+    .brand h1{
+      margin:0;
+      font-size: 18px;
+      line-height:1.2;
+      letter-spacing: .2px;
+    }
+    .brand p{
+      margin:0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height:1.35;
+    }
+
+    .badge{
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.05);
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .row{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap: wrap;
+    }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 8px;
+    }
+
+    input[type="text"], textarea{
+      width:100%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      padding: 12px 12px;
+      outline:none;
+      font-size: 14px;
+    }
+    textarea{ min-height: 110px; resize: vertical; }
+
+    .hint{
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--hint);
+      line-height: 1.35;
+    }
+
+    /* stars */
+    .stars{
+      display:flex;
+      gap: 6px;
+      align-items:center;
+      user-select:none;
+    }
+    .star{
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display:grid;
+      place-items:center;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.22);
+      cursor: pointer;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+    }
+    .star:active{ transform: scale(.96); }
+    .star svg{ width:18px; height:18px; opacity:.9; }
+
+    .star.on{
+      background: rgba(78,161,255,.18);
+      border-color: rgba(78,161,255,.45);
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .split{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+    }
+    @media (min-width: 680px){
+      .split{ grid-template-columns: 1.2fr .8fr; }
+    }
+
+    .check{
+      display:flex;
+      gap: 10px;
+      align-items:flex-start;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+    .check input{ margin-top: 2px; transform: scale(1.1); }
+
+    .btn{
+      width:100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(78,161,255,.40);
+      background: rgba(78,161,255,.18);
+      color: var(--text);
+      font-weight: 650;
+      font-size: 14px;
+      cursor:pointer;
+      transition: transform .08s ease, filter .15s ease;
+    }
+    .btn:active{ transform: scale(.99); }
+    .btn.secondary{
+      border-color: var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+      filter:saturate(.6);
+    }
+
+    .status{
+      display:none;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .status.show{ display:block; }
+    .status.ok{ border-color: rgba(48,209,88,.35); background: rgba(48,209,88,.10); color: rgba(255,255,255,.85); }
+    .status.bad{ border-color: rgba(255,69,58,.35); background: rgba(255,69,58,.10); color: rgba(255,255,255,.85); }
+
+    .promo{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+      padding: 14px;
+      border-radius: var(--radius);
+      border: 1px dashed rgba(78,161,255,.50);
+      background: rgba(78,161,255,.10);
+    }
+    .code{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.20);
+      border: 1px solid var(--border);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      letter-spacing: .6px;
+      font-size: 14px;
+    }
+
+    .small{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .footer{
+      margin-top: 12px;
+      text-align:center;
+      color: var(--hint);
+      font-size: 12px;
+    }
+    .link{
+      color: rgba(78,161,255,.92);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1>Оставьте отзыв</h1>
+        <p>Это займет меньше минуты. После отправки покажем промокод.</p>
+      </div>
+      <div class="badge" id="envBadge">Web</div>
+    </div>
+
+    <div class="grid">
+      <div class="card split">
+        <div>
+          <label>Оценка</label>
+          <div class="row">
+            <div class="stars" id="stars" aria-label="Рейтинг 1–5">
+              <!-- Stars injected by JS -->
+            </div>
+            <span class="pill" id="ratingLabel">Выберите 1–5</span>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <label for="reviewText">Ваш отзыв</label>
+          <textarea id="reviewText" placeholder="Например: быстро доставили, вкус отличный…"></textarea>
+          <div class="hint">Пожалуйста, без персональных данных (телефон/адрес) в тексте.</div>
+
+          <div style="height:12px"></div>
+
+          <label for="authorName">Имя (необязательно)</label>
+          <input id="authorName" type="text" placeholder="Как к вам обращаться?" />
+        </div>
+
+        <div>
+          <label>Предпросмотр</label>
+          <div class="status show" id="previewBox">
+            <div style="display:flex; gap:10px; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <strong id="previewStars">☆☆☆☆☆</strong>
+              <span class="small" id="previewName">Гость</span>
+            </div>
+            <div id="previewText" class="small">Напишите отзыв слева — он появится здесь.</div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="check">
+            <input id="consent" type="checkbox" />
+            <div>
+              Я согласен(а), что мой отзыв будет отправлен администратору/в канал.
+              <div class="small">Отправка = публикация/модерация на стороне владельца бота.</div>
+            </div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <button class="btn" id="submitBtn" disabled>Отправить отзыв</button>
+          <div style="height:10px"></div>
+          <button class="btn secondary" id="resetBtn" type="button">Очистить</button>
+
+          <div style="height:12px"></div>
+
+          <div class="status" id="statusBox"></div>
+        </div>
+      </div>
+
+      <div class="card" id="successCard" style="display:none;">
+        <h2 style="margin:0 0 8px; font-size:16px;">Спасибо! 🎉</h2>
+        <div class="small" id="successText">
+          Благодарим за отзыв и дарим вам промокод на 300 рублей. Используйте его при покупке чая на нашем сайте ipuer.ru
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="promo">
+          <div class="small">Ваш промокод:</div>
+          <div class="code">
+            <span id="promoCode">OTZYV</span>
+            <button class="btn secondary" id="copyBtn" style="width:auto; padding:8px 10px;">Копировать</button>
+          </div>
+          <div class="small">Скопируйте код и используйте при заказе.</div>
+        </div>
+
+        <div style="height:12px"></div>
+        <button class="btn" id="closeBtn">Закрыть</button>
+      </div>
+
+      <div class="footer">
+        Под Telegram Mini App: использует <span class="small">Telegram.WebApp</span> если доступно.
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const tg = window.Telegram?.WebApp ?? null;
+
+  // --- DOM
+  const envBadge = document.getElementById('envBadge');
+  const starsWrap = document.getElementById('stars');
+  const ratingLabel = document.getElementById('ratingLabel');
+  const reviewText = document.getElementById('reviewText');
+  const authorName = document.getElementById('authorName');
+  const consent = document.getElementById('consent');
+  const submitBtn = document.getElementById('submitBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const previewStars = document.getElementById('previewStars');
+  const previewName  = document.getElementById('previewName');
+  const previewText  = document.getElementById('previewText');
+
+  const statusBox = document.getElementById('statusBox');
+  const successCard = document.getElementById('successCard');
+  const promoCodeEl = document.getElementById('promoCode');
+  const successText = document.getElementById('successText');
+  const copyBtn = document.getElementById('copyBtn');
+  const closeBtn = document.getElementById('closeBtn');
+
+  // --- Promo (из твоего promo.json)
+  const PROMO = {
+    code: "OTZYV",
+    text: "Благодарим за отзыв и дарим вам промокод на 300 рублей. Используйте его при покупке чая на нашем сайте ipuer.ru"
+  };
+
+  // --- State
+  let rating = 0;
+  let isSending = false;
+
+  // --- Telegram init
+  if (tg){
+    envBadge.textContent = 'Telegram';
+    try{
+      tg.ready();
+      tg.expand();
+      applyTelegramTheme(tg.themeParams);
+      tg.MainButton.setText('Отправить');
+      tg.MainButton.onClick(onSubmit);
+      syncTelegramMainButton();
+    }catch(e){}
+  } else {
+    envBadge.textContent = 'Browser';
+  }
+
+  // --- Build stars
+  const STAR_SVG = `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 17.3l-5.2 3 1.4-5.9L3.6 10.7l6.1-.5L12 4.6l2.3 5.6 6.1.5-4.6 3.7 1.4 5.9L12 17.3z"
+        stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+    </svg>
+  `;
+  for (let i=1;i<=5;i++){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'star';
+    b.innerHTML = STAR_SVG;
+    b.setAttribute('aria-label', `${i} из 5`);
+    b.addEventListener('click', ()=> setRating(i, true));
+    starsWrap.appendChild(b);
+  }
+
+  // --- Events
+  reviewText.addEventListener('input', syncAll);
+  authorName.addEventListener('input', syncAll);
+  consent.addEventListener('change', syncAll);
+  submitBtn.addEventListener('click', onSubmit);
+  resetBtn.addEventListener('click', resetForm);
+
+  copyBtn.addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText(PROMO.code);
+      haptic('notification', 'success');
+      toast('Промокод скопирован ✅', 'ok');
+    }catch(e){
+      toast('Не удалось скопировать. Выделите и скопируйте вручную.', 'bad');
+    }
+  });
+
+  closeBtn.addEventListener('click', () => {
+    if (tg) tg.close();
+    else window.location.reload();
+  });
+
+  // --- Initial render
+  promoCodeEl.textContent = PROMO.code;
+  successText.textContent = PROMO.text;
+  syncAll();
+
+  function setRating(v, withHaptic){
+    rating = v;
+    const stars = starsWrap.querySelectorAll('.star');
+    stars.forEach((el, idx)=> el.classList.toggle('on', idx < v));
+    ratingLabel.textContent = v ? `Оценка: ${v}/5` : 'Выберите 1–5';
+
+    previewStars.textContent = '★★★★★☆☆☆☆☆'.slice(5 - v, 10 - v).slice(0,5); // cheap trick
+    // (да, это выглядит странно — ниже нормализуем)
+    previewStars.textContent = '★'.repeat(v) + '☆'.repeat(5 - v);
+
+    if (withHaptic) haptic('impact', 'light');
+    syncAll();
+  }
+
+  function syncAll(){
+    // preview
+    const name = (authorName.value || '').trim();
+    const text = (reviewText.value || '').trim();
+    previewName.textContent = name ? name : 'Гость';
+    previewText.textContent = text ? text : 'Напишите отзыв слева — он появится здесь.';
+
+    // enable
+    const ok = isFormValid();
+    submitBtn.disabled = !ok || isSending;
+    if (tg) syncTelegramMainButton();
+
+    // clear status if user edits
+    if (!isSending && statusBox.classList.contains('show') && !successCardIsVisible()){
+      // keep error until changed a bit? simplest: hide on any input
+      hideStatus();
+    }
+  }
+
+  function isFormValid(){
+    const text = (reviewText.value || '').trim();
+    return rating >= 1 && text.length >= 10 && consent.checked;
+  }
+
+  function syncTelegramMainButton(){
+    if (!tg) return;
+    const ok = isFormValid() && !isSending;
+    if (ok){
+      tg.MainButton.show();
+      tg.MainButton.enable();
+      tg.MainButton.setParams({ is_active: true, is_visible: true });
+    } else {
+      tg.MainButton.show();
+      tg.MainButton.disable();
+    }
+    tg.MainButton.setText(isSending ? 'Отправляем…' : 'Отправить');
+  }
+
+  function toast(msg, kind){
+    statusBox.textContent = msg;
+    statusBox.className = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
+  }
+  function hideStatus(){
+    statusBox.textContent = '';
+    statusBox.className = 'status';
+  }
+  function successCardIsVisible(){
+    return successCard.style.display !== 'none';
+  }
+
+  async function onSubmit(){
+    if (isSending) return;
+    if (!isFormValid()){
+      haptic('notification', 'warning');
+      toast('Проверьте: рейтинг, текст (минимум 10 символов) и согласие.', 'bad');
+      return;
+    }
+
+    isSending = true;
+    submitBtn.disabled = true;
+    if (tg) syncTelegramMainButton();
+    toast('Отправляем отзыв…', '');
+
+    const payload = buildPayload();
+
+    // Чтобы Codex мог легко интегрировать:
+    // 1) Либо оставить fetch на ваш backend (/api/review)
+    // 2) Либо отправлять напрямую через tg.sendData(payload)
+    try{
+      // ВАРИАНТ A: через backend
+      const res = await fetch('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok){
+        // попробуем прочитать текст ошибки
+        const txt = await safeText(res);
+        throw new Error(txt || ('HTTP ' + res.status));
+      }
+
+      // ВАРИАНТ B (опционально): отправить в бота через WebAppData
+      // tg?.sendData(JSON.stringify(payload));
+
+      haptic('notification', 'success');
+      showSuccess();
+    }catch(err){
+      console.error(err);
+      haptic('notification', 'error');
+      toast('Ошибка отправки. Проверьте, что бэкенд /api/review доступен и возвращает 200.', 'bad');
+    }finally{
+      isSending = false;
+      syncAll();
+    }
+  }
+
+  function buildPayload(){
+    const initDataUnsafe = tg?.initDataUnsafe ?? null;
+
+    return {
+      type: 'review',
+      createdAt: new Date().toISOString(),
+      rating,
+      text: (reviewText.value || '').trim(),
+      authorName: (authorName.value || '').trim() || null,
+
+      // Данные пользователя Telegram (если открыто внутри Telegram)
+      tgUser: initDataUnsafe?.user ? {
+        id: initDataUnsafe.user.id,
+        username: initDataUnsafe.user.username,
+        first_name: initDataUnsafe.user.first_name,
+        last_name: initDataUnsafe.user.last_name
+      } : null,
+
+      // Для серверной валидации подписи (если нужно):
+      // initData: tg?.initData || null,
+
+      promoOffered: PROMO.code
+    };
+  }
+
+  function showSuccess(){
+    // прячем форму (первую card) и показываем success
+    document.querySelectorAll('.grid > .card')[0].style.display = 'none';
+    successCard.style.display = 'block';
+    hideStatus();
+
+    if (tg){
+      tg.MainButton.hide();
+    }
+  }
+
+  function resetForm(){
+    setRating(0, false);
+    reviewText.value = '';
+    authorName.value = '';
+    consent.checked = false;
+    hideStatus();
+    haptic('impact', 'light');
+    syncAll();
+  }
+
+  function haptic(type, style){
+    try{
+      if (!tg?.HapticFeedback) return;
+      if (type === 'impact') tg.HapticFeedback.impactOccurred(style || 'light');
+      if (type === 'notification') tg.HapticFeedback.notificationOccurred(style || 'success');
+    }catch(e){}
+  }
+
+  async function safeText(res){
+    try{ return await res.text(); }catch(e){ return ''; }
+  }
+
+  function applyTelegramTheme(tp){
+    // минимальная адаптация под тему Telegram
+    // tp: { bg_color, text_color, hint_color, link_color, button_color, button_text_color, secondary_bg_color }
+    if (!tp) return;
+
+    const toCss = (hex, fallback) => (typeof hex === 'string' && hex.startsWith('#')) ? hex : fallback;
+
+    // Делаем мягкий маппинг: background + text + accent
+    const bg = toCss(tp.bg_color, null);
+    const text = toCss(tp.text_color, null);
+    const hint = toCss(tp.hint_color, null);
+    const accent = toCss(tp.button_color, null);
+
+    if (bg) document.documentElement.style.setProperty('--bg', bg);
+    if (text) document.documentElement.style.setProperty('--text', text);
+    if (hint) document.documentElement.style.setProperty('--muted', hint);
+    if (accent) document.documentElement.style.setProperty('--accent', accent);
+  }
+})();
+</script>
+</body>
+</html>
