@@ -15,6 +15,7 @@
       --accent: #4ea1ff;
       --ok: #30d158;
       --bad: #ff453a;
+      --warn:#ff9f0a;
 
       --radius: 18px;
       --shadow: 0 10px 30px rgba(0,0,0,.35);
@@ -34,7 +35,7 @@
       color:var(--text);
     }
     .wrap{
-      max-width: 820px;
+      max-width: 860px;
       margin: 0 auto;
       padding: calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
     }
@@ -56,6 +57,8 @@
       color: var(--muted);
       white-space:nowrap;
     }
+
+    .grid{ display:grid; gap: var(--gap); }
     .card{
       background: var(--card);
       border: 1px solid var(--border);
@@ -64,8 +67,6 @@
       box-shadow: var(--shadow);
       backdrop-filter: blur(10px);
     }
-    .grid{ display:grid; gap: var(--gap); }
-
     .row{ display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
     .stack{ display:flex; flex-direction:column; gap:10px; }
     .hidden{ display:none !important; }
@@ -98,6 +99,13 @@
       text-align:left;
       padding: 10px 0;
     }
+    .btn.sm{
+      width:auto;
+      padding: 9px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+    }
     .btn:disabled{ opacity:.45; cursor:not-allowed; filter:saturate(.6); }
 
     .pill{
@@ -127,7 +135,6 @@
     }
     textarea{ min-height: 120px; resize: vertical; }
 
-    /* options blocks */
     .seg3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
     .tile{
       padding: 14px;
@@ -162,7 +169,7 @@
     .star svg{ width:18px; height:18px; opacity:.9; }
     .star.on{ background: rgba(78,161,255,.18); border-color: rgba(78,161,255,.45); }
 
-    /* liked options (single-select) */
+    /* liked options (single select) */
     .chips{ display:flex; flex-wrap:wrap; gap:8px; }
     .chip{
       border: 1px solid var(--border);
@@ -182,16 +189,33 @@
       color: rgba(255,255,255,.85);
     }
 
-    /* photo */
-    .photoBox{
+    /* photo drop zone */
+    .drop{
       border: 1px dashed rgba(255,255,255,.18);
-      background: rgba(0,0,0,.14);
+      background: linear-gradient(180deg, rgba(78,161,255,.10), rgba(0,0,0,.14));
       border-radius: 16px;
       padding: 12px;
       display:flex;
       flex-direction:column;
       gap:10px;
+      transition: border-color .2s ease, box-shadow .2s ease;
     }
+    .dropRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .dropTitle{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .dropTitle strong{ font-size:13px; }
+    .dropTitle span{ font-size:12px; color: var(--muted); }
+    .fileHidden{ display:none; }
+
     .preview{
       width:100%;
       border-radius: 14px;
@@ -201,6 +225,7 @@
       display:none;
     }
     .preview img{ width:100%; height:auto; display:block; }
+
     .status{
       display:none;
       padding: 10px 12px;
@@ -234,6 +259,38 @@
       color: var(--muted);
       font-size: 12px;
     }
+    .divider{
+      height:1px;
+      background: rgba(255,255,255,.08);
+      margin: 6px 0;
+    }
+
+    /* micro UX: error state */
+    .errOutline{
+      border-color: rgba(255,69,58,.55) !important;
+      box-shadow: 0 0 0 3px rgba(255,69,58,.12);
+    }
+    .errText{
+      color: rgba(255,255,255,.88);
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,69,58,.35);
+      background: rgba(255,69,58,.10);
+      display:none;
+    }
+    .errText.show{ display:block; }
+
+    /* shake */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+    }
+    .shake{ animation: shake .28s ease; }
   </style>
 </head>
 <body>
@@ -252,17 +309,17 @@
       <div class="stack">
         <button class="btn" id="goReview">Оставить отзыв</button>
         <button class="btn secondary" id="goHistory">История</button>
-        <div class="small">Сценарий как в боте: обращение → категория → форма.</div>
+        <div class="small">Микро-UX: подсветка ошибок, авто-скролл к первому неверному полю.</div>
       </div>
     </div>
   </section>
 
-  <!-- REVIEW START: name + category -->
-  <section class="grid hidden" id="page-start">
-    <div class="card">
+  <!-- REVIEW -->
+  <section class="grid hidden" id="page-review">
+    <div class="card" id="reviewTopCard">
       <div class="row" style="margin-bottom:10px;">
         <span class="pill" id="whoPill">Пользователь: —</span>
-        <button class="btn ghost" id="backHomeFromStart">← Назад</button>
+        <button class="btn ghost" id="backHomeFromReview">← Назад</button>
       </div>
 
       <div style="margin-bottom:10px;">
@@ -290,13 +347,14 @@
       <div id="customNameBlock" class="hidden">
         <label for="customName">Введите имя</label>
         <input id="customName" type="text" placeholder="Например: Антон" />
+        <div class="errText" id="errName">Введите имя (минимум 2 символа).</div>
       </div>
 
-      <div style="height:14px"></div>
+      <div class="divider"></div>
 
       <div style="margin-bottom:10px;">
         <strong style="font-size:14px;">Категория отзыва</strong>
-        <div class="small">После выбора откроется форма.</div>
+        <div class="small">После выбора — форма появится ниже.</div>
       </div>
 
       <div class="seg3" id="categoryGrid">
@@ -314,49 +372,62 @@
         </div>
       </div>
 
-      <div style="height:12px"></div>
-      <button class="btn" id="continueBtn" disabled>Продолжить</button>
-      <div class="hint">Нужно выбрать обращение и категорию.</div>
+      <div class="errText" id="errCategory">Выберите категорию.</div>
     </div>
-  </section>
 
-  <!-- REVIEW FORM -->
-  <section class="grid hidden" id="page-form">
-    <div class="card">
+    <!-- FORM -->
+    <div class="card hidden" id="formCard">
       <div class="row" style="margin-bottom:10px;">
         <span class="pill" id="summaryPill">—</span>
-        <button class="btn ghost" id="backToStart">← Назад</button>
+        <button class="btn ghost" id="collapseFormBtn">Свернуть форму</button>
       </div>
 
-      <!-- TEA ONLY: name + photo -->
+      <!-- TEA ONLY -->
       <div id="teaBlock" class="hidden">
         <label for="teaTitle">Название</label>
         <input id="teaTitle" type="text" placeholder="Например: Шэн пуэр 2016, Дахунпао…" />
-        <div class="hint">Можно как помните.</div>
+        <div class="hint">Обязательное поле.</div>
+        <div class="errText" id="errTeaTitle">Введите название чая (минимум 2 символа).</div>
 
         <div style="height:12px"></div>
 
         <label>Прикрепить фото продукта</label>
-        <div class="photoBox">
-          <input id="photoInput" type="file" accept="image/*" />
-          <div class="small">Фото необязательно. Если выберете — отправим на сервер вместе с отзывом.</div>
+        <div class="drop" id="dropZone">
+          <div class="dropRow">
+            <div class="dropTitle">
+              <strong>Фото продукта</strong>
+              <span id="photoStatusText">Не выбрано (обязательное поле)</span>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn secondary sm" id="pickPhotoBtn" type="button">Выбрать фото</button>
+              <button class="btn secondary sm hidden" id="replacePhotoBtn" type="button">Заменить</button>
+              <button class="btn secondary sm hidden" id="removePhotoBtn" type="button">Удалить</button>
+            </div>
+          </div>
+
+          <input class="fileHidden" id="photoInput" type="file" accept="image/*" />
           <div class="preview" id="photoPreview"><img id="photoImg" alt="preview"/></div>
-          <button class="btn secondary hidden" id="removePhotoBtn" type="button">Убрать фото</button>
+
+          <div class="small">
+            Подсказка: нажмите “Выбрать фото”.
+          </div>
         </div>
+        <div class="errText" id="errTeaPhoto">Для “Чай” фото обязательно — прикрепите изображение.</div>
 
         <div style="height:12px"></div>
       </div>
 
       <!-- Rating -->
       <label>Оценить по шкале</label>
-      <div class="row">
+      <div class="row" id="ratingRow">
         <div class="stars" id="stars"></div>
         <span class="pill" id="ratingLabel">Выберите 1–5</span>
       </div>
+      <div class="errText" id="errRating">Поставьте оценку (1–5).</div>
 
       <div style="height:12px"></div>
 
-      <!-- Liked most (single select, optional) -->
+      <!-- Liked most -->
       <label>Что понравилось больше всего?</label>
       <div class="chips" id="likedChips"></div>
       <div class="hint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
@@ -366,13 +437,15 @@
       <!-- Text -->
       <label for="freeText">Отлично! А теперь напишите пару строк в произвольной форме</label>
       <textarea id="freeText" placeholder="Пара строк…"></textarea>
+      <div class="errText" id="errText">Напишите хотя бы пару слов (минимум 3 символа).</div>
 
       <div style="height:12px"></div>
 
-      <label class="small" style="display:flex; gap:10px; margin:0; cursor:pointer;">
+      <label class="small" style="display:flex; gap:10px; margin:0; cursor:pointer;" id="consentRow">
         <input id="consent" type="checkbox" style="margin-top:2px; transform:scale(1.1);" />
         <span>Я согласен(а), что отзыв будет отправлен администратору/в канал.</span>
       </label>
+      <div class="errText" id="errConsent">Нужно поставить галочку согласия.</div>
 
       <div style="height:12px"></div>
 
@@ -395,7 +468,7 @@
 
       <div class="row">
         <div class="pill" id="historyHint">Загружаем отзывы…</div>
-        <button class="btn secondary" id="reloadHistory" style="width:auto; padding:8px 10px;">Обновить</button>
+        <button class="btn secondary sm" id="reloadHistory" type="button">Обновить</button>
       </div>
 
       <div style="height:12px"></div>
@@ -418,8 +491,7 @@
   const subtitle = document.getElementById('subtitle');
 
   const pageHome = document.getElementById('page-home');
-  const pageStart = document.getElementById('page-start');
-  const pageForm = document.getElementById('page-form');
+  const pageReview = document.getElementById('page-review');
   const pageHistory = document.getElementById('page-history');
 
   const goReview = document.getElementById('goReview');
@@ -428,32 +500,52 @@
   const whoPill = document.getElementById('whoPill');
   const whoPill2 = document.getElementById('whoPill2');
 
-  const backHomeFromStart = document.getElementById('backHomeFromStart');
+  const backHomeFromReview = document.getElementById('backHomeFromReview');
   const backHomeFromHistory = document.getElementById('backHomeFromHistory');
-  const backToStart = document.getElementById('backToStart');
+
+  const reviewTopCard = document.getElementById('reviewTopCard');
 
   const nameModeGrid = document.getElementById('nameModeGrid');
   const customNameBlock = document.getElementById('customNameBlock');
   const customName = document.getElementById('customName');
   const tgNameHint = document.getElementById('tgNameHint');
 
-  const categoryGrid = document.getElementById('categoryGrid');
-  const continueBtn = document.getElementById('continueBtn');
+  const errName = document.getElementById('errName');
+  const errCategory = document.getElementById('errCategory');
 
+  const categoryGrid = document.getElementById('categoryGrid');
+
+  const formCard = document.getElementById('formCard');
   const summaryPill = document.getElementById('summaryPill');
+  const collapseFormBtn = document.getElementById('collapseFormBtn');
 
   const teaBlock = document.getElementById('teaBlock');
   const teaTitle = document.getElementById('teaTitle');
+  const errTeaTitle = document.getElementById('errTeaTitle');
+
+  const dropZone = document.getElementById('dropZone');
+  const errTeaPhoto = document.getElementById('errTeaPhoto');
+  const photoStatusText = document.getElementById('photoStatusText');
+  const pickPhotoBtn = document.getElementById('pickPhotoBtn');
+  const replacePhotoBtn = document.getElementById('replacePhotoBtn');
+  const removePhotoBtn = document.getElementById('removePhotoBtn');
   const photoInput = document.getElementById('photoInput');
   const photoPreview = document.getElementById('photoPreview');
   const photoImg = document.getElementById('photoImg');
-  const removePhotoBtn = document.getElementById('removePhotoBtn');
 
   const starsWrap = document.getElementById('stars');
+  const ratingRow = document.getElementById('ratingRow');
   const ratingLabel = document.getElementById('ratingLabel');
+  const errRating = document.getElementById('errRating');
+
   const likedChips = document.getElementById('likedChips');
+
   const freeText = document.getElementById('freeText');
+  const errText = document.getElementById('errText');
+
+  const consentRow = document.getElementById('consentRow');
   const consent = document.getElementById('consent');
+  const errConsent = document.getElementById('errConsent');
 
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
@@ -469,7 +561,7 @@
   const CATEGORIES = { tea:"Чай", service:"Сервис", delivery:"Доставка" };
   const LIKED_OPTIONS = {
     tea: ["ВКУС","АРОМАТ","ОЩУЩЕНИЕ ОТ ЧАЯ","ВСË"],
-    service: ["Качество","Скорость","Профессионализм"],
+    service: ["Качество","Скорость","Профессионализм","ВСË"],
     delivery: ["Скорость","Стоимость","Курьер - 🔥","ВСË"]
   };
 
@@ -478,16 +570,13 @@
   const userId = tgUser?.id ?? null;
 
   let state = {
-    route: 'home',           // home | start | form | history
-    nameMode: null,          // tg | anon | custom
-    displayName: null,       // computed
-    category: null,          // tea | service | delivery
-
+    route: 'home',
+    nameMode: null,
+    category: null,
     rating: 0,
-    likedMost: null,         // string or null => will send "Ничего"
-    sending: false,
-
-    photoFile: null
+    likedMost: null,
+    photoFile: null,
+    sending: false
   };
 
   let history = { offset:0, limit:10, hasMore:true };
@@ -524,19 +613,26 @@
   }
 
   // ---------- Events
-  goReview.addEventListener('click', () => nav('start'));
+  goReview.addEventListener('click', () => nav('review'));
   goHistory.addEventListener('click', () => nav('history'));
-
-  backHomeFromStart.addEventListener('click', () => nav('home'));
+  backHomeFromReview.addEventListener('click', () => nav('home'));
   backHomeFromHistory.addEventListener('click', () => nav('home'));
-  backToStart.addEventListener('click', () => nav('start'));
+
+  collapseFormBtn.addEventListener('click', () => {
+    formCard.classList.add('hidden');
+    if (tg) tg.MainButton.hide();
+  });
 
   nameModeGrid.addEventListener('click', (e) => {
     const tile = e.target.closest('.tile');
     if (!tile) return;
     setNameMode(tile.dataset.nameMode);
   });
-  customName.addEventListener('input', () => { syncStartUI(); });
+
+  customName.addEventListener('input', () => {
+    clearFieldError(customName, errName);
+    syncFormUI();
+  });
 
   categoryGrid.addEventListener('click', (e) => {
     const tile = e.target.closest('.tile');
@@ -544,20 +640,29 @@
     setCategory(tile.dataset.cat);
   });
 
-  continueBtn.addEventListener('click', () => nav('form'));
-
-  teaTitle.addEventListener('input', syncFormUI);
-  freeText.addEventListener('input', syncFormUI);
-  consent.addEventListener('change', syncFormUI);
-
   likedChips.addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
     setLikedMost(chip.dataset.value);
   });
 
-  photoInput.addEventListener('change', onPhotoPicked);
+  pickPhotoBtn.addEventListener('click', () => photoInput.click());
+  replacePhotoBtn.addEventListener('click', () => photoInput.click());
   removePhotoBtn.addEventListener('click', removePhoto);
+  photoInput.addEventListener('change', onPhotoPicked);
+
+  teaTitle.addEventListener('input', () => {
+    clearFieldError(teaTitle, errTeaTitle);
+    syncFormUI();
+  });
+  freeText.addEventListener('input', () => {
+    clearFieldError(freeText, errText);
+    syncFormUI();
+  });
+  consent.addEventListener('change', () => {
+    if (consent.checked) clearRowError(consentRow, errConsent);
+    syncFormUI();
+  });
 
   submitBtn.addEventListener('click', submitReview);
   resetBtn.addEventListener('click', () => resetForm(false));
@@ -570,8 +675,7 @@
     state.route = route;
 
     pageHome.classList.toggle('hidden', route !== 'home');
-    pageStart.classList.toggle('hidden', route !== 'start');
-    pageForm.classList.toggle('hidden', route !== 'form');
+    pageReview.classList.toggle('hidden', route !== 'review');
     pageHistory.classList.toggle('hidden', route !== 'history');
 
     if (route === 'home'){
@@ -580,22 +684,15 @@
       if (tg){ tg.BackButton.hide(); tg.MainButton.hide(); }
     }
 
-    if (route === 'start'){
+    if (route === 'review'){
       title.textContent = 'Оставить отзыв';
-      subtitle.textContent = 'Обращение и категория';
+      subtitle.textContent = 'Обращение, категория и форма';
       if (tg){ tg.BackButton.show(); tg.MainButton.hide(); }
       syncWho();
-      initStartDefaults();
-      syncStartUI();
-    }
-
-    if (route === 'form'){
-      title.textContent = 'Отзыв';
-      subtitle.textContent = 'Заполните форму';
-      if (tg){ tg.BackButton.show(); }
-      syncWho();
-      syncFormPage();
-      syncFormUI();
+      initReviewDefaults();
+      syncReviewUI();
+      formCard.classList.add('hidden');
+      clearAllErrors();
     }
 
     if (route === 'history'){
@@ -613,32 +710,44 @@
     whoPill2.textContent = label;
   }
 
-  // ---------- Start page (name + category)
-  function initStartDefaults(){
-    // подставим подсказку Telegram-имени
+  // ---------- Defaults
+  function initReviewDefaults(){
     const tgName = getTgName();
     tgNameHint.textContent = tgName ? `Будет “${tgName}”` : 'Имя недоступно (не Telegram)';
-
-    // если пользователь уже что-то выбрал — не сбрасываем
-    // но если ничего не выбрано — дефолт в tg (если есть имя), иначе anon
-    if (!state.nameMode){
-      state.nameMode = tgName ? 'tg' : 'anon';
-    }
-    if (!state.category){
-      state.category = null;
-    }
+    if (!state.nameMode) state.nameMode = tgName ? 'tg' : 'anon';
   }
 
+  // ---------- Name + category
   function setNameMode(mode){
     state.nameMode = mode;
     haptic('impact','light');
-    syncStartUI();
+    syncReviewUI();
+    syncFormUI();
   }
 
   function setCategory(cat){
     state.category = cat;
     haptic('impact','light');
-    syncStartUI();
+    clearRowError(reviewTopCard, errCategory);
+    openFormForCategory();
+  }
+
+  function syncReviewUI(){
+    nameModeGrid.querySelectorAll('.tile').forEach(t => {
+      t.classList.toggle('on', t.dataset.nameMode === state.nameMode);
+    });
+    customNameBlock.classList.toggle('hidden', state.nameMode !== 'custom');
+
+    categoryGrid.querySelectorAll('.tile').forEach(t => {
+      t.classList.toggle('on', t.dataset.cat === state.category);
+    });
+  }
+
+  function getTgName(){
+    const u = tgUser;
+    if (!u) return null;
+    const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+    return full || u.username || null;
   }
 
   function computeDisplayName(){
@@ -652,55 +761,20 @@
     return 'Гость';
   }
 
-  function isStartValid(){
-    if (!state.nameMode) return false;
-    if (!state.category) return false;
-    if (state.nameMode === 'custom'){
-      return (customName.value || '').trim().length >= 2; // минимум 2 символа
-    }
-    return true;
-  }
-
-  function syncStartUI(){
-    // highlight name tiles
-    nameModeGrid.querySelectorAll('.tile').forEach(t => {
-      t.classList.toggle('on', t.dataset.nameMode === state.nameMode);
-    });
-
-    customNameBlock.classList.toggle('hidden', state.nameMode !== 'custom');
-
-    // highlight category tiles
-    categoryGrid.querySelectorAll('.tile').forEach(t => {
-      t.classList.toggle('on', t.dataset.cat === state.category);
-    });
-
-    // enable continue
-    continueBtn.disabled = !isStartValid();
-  }
-
-  function getTgName(){
-    const u = tgUser;
-    if (!u) return null;
-    const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
-    return full || u.username || null;
-  }
-
-  // ---------- Form page
-  function syncFormPage(){
-    // reset form parts when category changes
-    // (мы делаем сброс каждый раз, когда попали на форму из start)
+  // ---------- Form open / render
+  function openFormForCategory(){
     resetForm(true);
 
     const name = computeDisplayName();
-    state.displayName = name;
-
     summaryPill.textContent = `${name} · ${CATEGORIES[state.category] || '—'}`;
 
-    // show tea block only for tea
     teaBlock.classList.toggle('hidden', state.category !== 'tea');
-
-    // render liked options by category
     renderLikedOptions();
+
+    formCard.classList.remove('hidden');
+    formCard.scrollIntoView({ behavior:'smooth', block:'start' });
+
+    syncFormUI();
   }
 
   function renderLikedOptions(){
@@ -714,11 +788,10 @@
       b.textContent = opt;
       likedChips.appendChild(b);
     });
-    state.likedMost = null; // no selection => "Ничего"
+    state.likedMost = null;
   }
 
   function setLikedMost(value){
-    // single select: clicking same again unselects
     if (state.likedMost === value) state.likedMost = null;
     else state.likedMost = value;
 
@@ -730,28 +803,31 @@
     syncFormUI();
   }
 
+  // ---------- Rating
   function setRating(v, withHaptic){
     state.rating = v;
     starsWrap.querySelectorAll('.star').forEach((el, idx) => el.classList.toggle('on', idx < v));
     ratingLabel.textContent = v ? `Оценка: ${v}/5` : 'Выберите 1–5';
+    if (v >= 1) clearRowError(ratingRow, errRating);
     if (withHaptic) haptic('impact','light');
     syncFormUI();
   }
 
+  // ---------- Photo
   function onPhotoPicked(){
     const file = photoInput.files && photoInput.files[0] ? photoInput.files[0] : null;
-    if (!file){
-      removePhoto();
-      return;
-    }
+    if (!file){ removePhoto(); return; }
     state.photoFile = file;
 
-    // preview
     const url = URL.createObjectURL(file);
     photoImg.src = url;
     photoPreview.style.display = 'block';
+
+    photoStatusText.textContent = `Выбрано ✅ ${file.name}`;
+    replacePhotoBtn.classList.remove('hidden');
     removePhotoBtn.classList.remove('hidden');
 
+    clearRowError(dropZone, errTeaPhoto);
     syncFormUI();
   }
 
@@ -760,61 +836,125 @@
     photoInput.value = '';
     photoImg.src = '';
     photoPreview.style.display = 'none';
+
+    photoStatusText.textContent = 'Не выбрано (обязательное поле)';
+    replacePhotoBtn.classList.add('hidden');
     removePhotoBtn.classList.add('hidden');
+
     syncFormUI();
   }
 
-  function isFormValid(){
-    const text = (freeText.value || '').trim();
-    const hasConsent = consent.checked;
+  // ---------- Validation
+  function validateForSubmit(){
+    clearAllErrors();
 
-    const teaOk = state.category !== 'tea' || (teaTitle.value || '').trim().length >= 2; // как в боте: название нужно
-    return teaOk && state.rating >= 1 && text.length >= 3 && hasConsent && !state.sending;
+    const issues = [];
+
+    // name (custom)
+    if (state.nameMode === 'custom' && (customName.value || '').trim().length < 2){
+      issues.push({ el: customName, msgEl: errName, type:'field' });
+    }
+
+    // category must be selected (and form shown)
+    if (!state.category){
+      issues.push({ el: reviewTopCard, msgEl: errCategory, type:'row' });
+    }
+
+    // tea required
+    if (state.category === 'tea'){
+      if ((teaTitle.value || '').trim().length < 2){
+        issues.push({ el: teaTitle, msgEl: errTeaTitle, type:'field' });
+      }
+      if (!state.photoFile){
+        issues.push({ el: dropZone, msgEl: errTeaPhoto, type:'row' });
+      }
+    }
+
+    // rating
+    if (state.rating < 1){
+      issues.push({ el: ratingRow, msgEl: errRating, type:'row' });
+    }
+
+    // text
+    if ((freeText.value || '').trim().length < 3){
+      issues.push({ el: freeText, msgEl: errText, type:'field' });
+    }
+
+    // consent
+    if (!consent.checked){
+      issues.push({ el: consentRow, msgEl: errConsent, type:'row' });
+    }
+
+    // apply errors
+    issues.forEach((i, idx) => {
+      if (i.type === 'field') setFieldError(i.el, i.msgEl);
+      else setRowError(i.el, i.msgEl);
+
+      // shake first
+      if (idx === 0) shake(i.el);
+    });
+
+    return issues;
+  }
+
+  function isFormValidQuick(){
+    const nameOk = (state.nameMode !== 'custom') || ((customName.value || '').trim().length >= 2);
+    const catOk = !!state.category;
+    const teaNameOk = state.category !== 'tea' || ((teaTitle.value || '').trim().length >= 2);
+    const teaPhotoOk = state.category !== 'tea' || !!state.photoFile;
+    const ratingOk = state.rating >= 1;
+    const textOk = (freeText.value || '').trim().length >= 3;
+    const consentOk = consent.checked;
+    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && consentOk && !state.sending;
   }
 
   function syncFormUI(){
-    submitBtn.disabled = !isFormValid();
+    const ok = isFormValidQuick();
+    submitBtn.disabled = !ok;
 
-    // Telegram MainButton
     if (tg){
       tg.MainButton.setText(state.sending ? 'Отправляем…' : 'Отправить');
-      tg.MainButton.show();
-      if (isFormValid()){
-        tg.MainButton.enable();
-        tg.MainButton.onClick(submitReview);
+      if (!formCard.classList.contains('hidden')){
+        tg.MainButton.show();
+        if (ok){
+          tg.MainButton.enable();
+          tg.MainButton.onClick(submitReview);
+        } else {
+          tg.MainButton.disable();
+        }
       } else {
-        tg.MainButton.disable();
+        tg.MainButton.hide();
       }
     }
   }
 
   function resetForm(silent){
-    // stars
     state.rating = 0;
     starsWrap.querySelectorAll('.star').forEach(el => el.classList.remove('on'));
     ratingLabel.textContent = 'Выберите 1–5';
 
-    // liked
     state.likedMost = null;
     likedChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('on'));
 
-    // tea fields
     teaTitle.value = '';
     removePhoto();
 
-    // text + consent
     freeText.value = '';
     consent.checked = false;
 
     hideStatus();
+    clearAllErrors();
     if (!silent) haptic('impact','light');
   }
 
-  // ---------- Submit (FormData with optional photo)
+  // ---------- Submit
   async function submitReview(){
-    if (!isFormValid()){
-      toast('Проверьте форму: для чая — название, затем оценка, текст и согласие.', 'bad');
+    const issues = validateForSubmit();
+    if (issues.length){
       haptic('notification','warning');
+      // scroll to first issue
+      issues[0].el.scrollIntoView({ behavior:'smooth', block:'center' });
+      toast('Проверьте выделенные поля 👇', 'bad');
       return;
     }
 
@@ -825,37 +965,27 @@
     const payload = {
       type: 'review',
       createdAt: new Date().toISOString(),
-
       category: state.category,
-      displayName: computeDisplayName(),             // как обращаться
-      nameMode: state.nameMode,                      // tg|anon|custom
-
+      nameMode: state.nameMode,
+      displayName: computeDisplayName(),
       teaTitle: state.category === 'tea' ? ((teaTitle.value || '').trim() || null) : null,
-
       rating: state.rating,
       likedMost: state.likedMost ? state.likedMost : 'Ничего',
-
       text: (freeText.value || '').trim(),
-
       tgUser: tgUser ? {
         id: tgUser.id,
         username: tgUser.username,
         first_name: tgUser.first_name,
         last_name: tgUser.last_name
       } : null
-      // initData: tg?.initData || null (если будешь валидировать подпись)
     };
 
     try{
-      // Вариант: multipart (payload + photo)
       const fd = new FormData();
       fd.append('payload', JSON.stringify(payload));
       if (state.photoFile) fd.append('photo', state.photoFile, state.photoFile.name);
 
-      // TODO для Codex: endpoint принимает multipart/form-data
-      // POST /api/review -> сохранить в БД + отправить в канал (+ фото)
       const res = await fetch('/api/review', { method:'POST', body: fd });
-
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -864,8 +994,9 @@
       haptic('notification','success');
       toast('Отзыв отправлен ✅', 'ok');
 
-      // после отправки — возвращаемся на старт
-      setTimeout(() => { nav('home'); }, 400);
+      resetForm(true);
+      formCard.classList.add('hidden');
+      if (tg) tg.MainButton.hide();
     }catch(e){
       console.error(e);
       haptic('notification','error');
@@ -876,7 +1007,7 @@
     }
   }
 
-  // ---------- History (simple)
+  // ---------- History
   async function loadHistory(reset){
     if (reset){
       history.offset = 0;
@@ -925,7 +1056,7 @@
     const cat = CATEGORIES[r.category] || r.category || '—';
     const dt = formatDate(r.createdAt || r.created_at);
     const stars = '★'.repeat(Number(r.rating||0)) + '☆'.repeat(5 - Number(r.rating||0));
-    const name = r.displayName || r.display_name || r.authorName || 'Гость';
+    const name = r.displayName || r.display_name || 'Гость';
     const tea = r.teaTitle || r.tea_title || null;
     const liked = r.likedMost || r.liked_most || 'Ничего';
     const text = r.text || '';
@@ -943,6 +1074,43 @@
       <div style="font-size:13px; line-height:1.35;">${escapeHtml(text)}</div>
     `;
     historyList.appendChild(el);
+  }
+
+  // ---------- Micro UX helpers
+  function setFieldError(inputEl, msgEl){
+    inputEl.classList.add('errOutline');
+    msgEl.classList.add('show');
+  }
+  function clearFieldError(inputEl, msgEl){
+    inputEl.classList.remove('errOutline');
+    msgEl.classList.remove('show');
+  }
+  function setRowError(rowEl, msgEl){
+    rowEl.classList.add('errOutline');
+    msgEl.classList.add('show');
+  }
+  function clearRowError(rowEl, msgEl){
+    rowEl.classList.remove('errOutline');
+    msgEl.classList.remove('show');
+  }
+  function clearAllErrors(){
+    // inputs
+    clearFieldError(customName, errName);
+    clearFieldError(teaTitle, errTeaTitle);
+    clearFieldError(freeText, errText);
+
+    // rows
+    clearRowError(reviewTopCard, errCategory);
+    clearRowError(dropZone, errTeaPhoto);
+    clearRowError(ratingRow, errRating);
+    clearRowError(consentRow, errConsent);
+  }
+  function shake(el){
+    el.classList.remove('shake');
+    // reflow
+    void el.offsetWidth;
+    el.classList.add('shake');
+    setTimeout(() => el.classList.remove('shake'), 350);
   }
 
   // ---------- UI helpers
