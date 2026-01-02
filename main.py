@@ -1,9 +1,13 @@
+import asyncio
 import logging
 import json
 import sqlite3
 import os  # ← ДОБАВИЛИ
+import threading
+import uuid
 from datetime import datetime
 from enum import IntEnum
+import telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -14,6 +18,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+from aiohttp import web
 import telegram.error
 import traceback
 from tea import (
@@ -36,6 +41,30 @@ from form import (
 # ПУТЬ К БД (поддержка старого файла из репозитория)
 # ========================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def load_env_file():
+    env_path = os.path.join(BASE_DIR, ".env")
+    if not os.path.exists(env_path):
+        return
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception:
+        # Не критично, просто продолжаем с переменными окружения
+        pass
+
+
+load_env_file()
+
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, "reviews.db")
 FALLBACK_DB_DIR = "/root/RB2"
 FALLBACK_DB_PATH = os.path.join(FALLBACK_DB_DIR, "reviews.db")
@@ -58,6 +87,15 @@ def resolve_db_path() -> str:
     return resolved
 
 DB_PATH = resolve_db_path()
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+WEBAPP_HOST = os.environ.get("WEBAPP_HOST", "0.0.0.0")
+WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8080"))
+WEBAPP_URL = os.environ.get("WEBAPP_URL", f"http://{WEBAPP_HOST}:{WEBAPP_PORT}/webapp")
+MAX_PHOTO_SIZE = 8 * 1024 * 1024  # 8 MB
+ALLOWED_CATEGORIES = {"tea", "service", "delivery"}
+ALLOWED_NAME_MODES = {"tg", "anon", "custom"}
+ALLOWED_PHOTO_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+CATEGORY_TITLES = {"tea": "Чай", "service": "Сервис", "delivery": "Доставка"}
 
 # Логируем путь при запуске
 logging.basicConfig(
@@ -99,8 +137,27 @@ def init_db():
     except sqlite3.OperationalError as e:
         if "duplicate column name" not in str(e):
             logger.error(f"Error adding user_name column: {e}")
+    # WebApp reviews table (non-destructive for legacy data)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS web_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            user_id INTEGER,
+            category TEXT NOT NULL,
+            name_mode TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            tea_title TEXT,
+            rating INTEGER NOT NULL,
+            liked_most TEXT NOT NULL DEFAULT 'Ничего',
+            text TEXT NOT NULL,
+            photo_path TEXT,
+            raw_payload TEXT
+        )
+    ''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_web_reviews_user ON web_reviews(user_id)")
     conn.commit()
     conn.close()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 init_db()  # Создаём при старте
 
@@ -167,6 +224,298 @@ def _sync_pending(context: ContextTypes.DEFAULT_TYPE):
     """Копирует pending_data → pending_review, чтобы превью всегда был свежим."""
     pd = context.user_data.get('pending_data', {})
     context.user_data['pending_review'] = pd.copy()
+
+
+# ========================================
+# WebApp helpers & API
+# ========================================
+def _bad_request(message: str) -> web.Response:
+    return web.json_response({"ok": False, "error": message}, status=400)
+
+
+def _validate_payload(payload_raw: str) -> tuple[dict, str | None]:
+    try:
+        payload = json.loads(payload_raw)
+    except json.JSONDecodeError:
+        return {}, "Некорректный JSON в поле payload"
+    if not isinstance(payload, dict):
+        return {}, "payload должен быть объектом"
+
+    category = payload.get("category")
+    if category not in ALLOWED_CATEGORIES:
+        return {}, "Неверная категория"
+
+    name_mode = payload.get("nameMode") or payload.get("name_mode")
+    if name_mode not in ALLOWED_NAME_MODES:
+        return {}, "Неверный режим имени"
+
+    display_name = (payload.get("displayName") or payload.get("display_name") or "").strip()
+    if name_mode == "anon":
+        display_name = "Гость"
+    if not display_name or len(display_name) < 2:
+        return {}, "Укажите имя (>= 2 символов)"
+
+    try:
+        rating = int(payload.get("rating"))
+    except (TypeError, ValueError):
+        return {}, "Оценка должна быть числом 1-5"
+    if rating < 1 or rating > 5:
+        return {}, "Оценка должна быть в диапазоне 1-5"
+
+    text = (payload.get("text") or "").strip()
+    if len(text) < 3:
+        return {}, "Текст отзыва слишком короткий"
+
+    liked_most = (payload.get("likedMost") or payload.get("liked_most") or "Ничего").strip() or "Ничего"
+    tea_title = payload.get("teaTitle") or payload.get("tea_title")
+    if category == "tea":
+        tea_title = (tea_title or "").strip()
+        if len(tea_title) < 2:
+            return {}, "Название чая обязательно (>= 2 символа)"
+    else:
+        tea_title = (tea_title or "").strip() or None
+
+    created_at = payload.get("createdAt") or payload.get("created_at") or datetime.utcnow().isoformat()
+    tg_user = payload.get("tgUser") or payload.get("tg_user") or {}
+    user_id = tg_user.get("id")
+
+    review = {
+        "created_at": created_at,
+        "user_id": user_id,
+        "category": category,
+        "name_mode": name_mode,
+        "display_name": display_name,
+        "tea_title": tea_title,
+        "rating": rating,
+        "liked_most": liked_most,
+        "text": text,
+        "photo_path": None,
+        "raw_payload": payload_raw,
+    }
+    return review, None
+
+
+async def _save_photo(part) -> tuple[str | None, str | None]:
+    """Сохраняет фото из multipart-части. Возвращает (path, error)."""
+    filename = part.filename
+    if not filename:
+        return None, "Файл фото отсутствует"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_PHOTO_EXT:
+        return None, "Неверный формат фото (разрешены jpg/png/webp)"
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    dest_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}{ext}")
+    size = 0
+    try:
+        with open(dest_path, "wb") as f:
+            while True:
+                chunk = await part.read_chunk(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_PHOTO_SIZE:
+                    raise ValueError("Размер фото превышает 8MB")
+                f.write(chunk)
+    except Exception as e:
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+            except OSError:
+                pass
+        return None, str(e)
+
+    return dest_path, None
+
+
+def _insert_web_review(review: dict) -> int:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        '''
+        INSERT INTO web_reviews (created_at, user_id, category, name_mode, display_name, tea_title, rating, liked_most, text, photo_path, raw_payload)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        (
+            review["created_at"],
+            review["user_id"],
+            review["category"],
+            review["name_mode"],
+            review["display_name"],
+            review["tea_title"],
+            review["rating"],
+            review["liked_most"],
+            review["text"],
+            review["photo_path"],
+            review.get("raw_payload"),
+        ),
+    )
+    review_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return review_id
+
+
+async def _send_to_channel(bot, review: dict) -> None:
+    category_title = CATEGORY_TITLES.get(review["category"], review["category"])
+    lines = [
+        f"Категория: {category_title}",
+        f"Как обращаться: {review['display_name']}",
+        f"Оценка: {review['rating']}/5",
+        f"Понравилось: {review.get('liked_most') or 'Ничего'}",
+    ]
+    if review["category"] == "tea" and review.get("tea_title"):
+        lines.insert(1, f"Название: {review['tea_title']}")
+    lines.append(f"Текст: {review['text']}")
+    message = "\n".join(lines)
+
+    if review.get("photo_path"):
+        with open(review["photo_path"], "rb") as photo_file:
+            await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=message)
+    else:
+        await bot.send_message(chat_id=CHANNEL_ID, text=message)
+
+
+async def api_create_review(request: web.Request) -> web.Response:
+    if "multipart/form-data" not in (request.content_type or ""):
+        return _bad_request("Используйте multipart/form-data для загрузки")
+    reader = await request.multipart()
+    payload_raw = None
+    photo_path = None
+
+    async for part in reader:
+        if part.name == "payload":
+            payload_raw = await part.text()
+        elif part.name == "photo":
+            photo_path, err = await _save_photo(part)
+            if err:
+                return _bad_request(err)
+
+    if not payload_raw:
+        return _bad_request("Поле payload обязательно")
+
+    review, err = _validate_payload(payload_raw)
+    if err:
+        return _bad_request(err)
+
+    if review["category"] == "tea" and not photo_path:
+        return _bad_request("Для категории tea необходимо фото")
+
+    review["photo_path"] = photo_path
+    try:
+        review_id = await asyncio.to_thread(_insert_web_review, review)
+    except Exception as e:
+        logger.error(f"DB insert error (web_reviews): {e}")
+        return web.json_response({"ok": False, "error": "Не удалось сохранить отзыв"}, status=500)
+
+    bot = request.app.get("bot")
+    try:
+        await _send_to_channel(bot, review)
+    except Exception as e:
+        logger.error(f"Send to channel failed for web review {review_id}: {e}")
+        return web.json_response({"ok": False, "error": "Сохранено, но не отправлено в канал"}, status=500)
+
+    return web.json_response({"ok": True, "id": review_id}, status=201)
+
+
+async def api_get_reviews(request: web.Request) -> web.Response:
+    try:
+        offset = int(request.query.get("offset", "0"))
+    except ValueError:
+        offset = 0
+    try:
+        limit = int(request.query.get("limit", "10"))
+    except ValueError:
+        limit = 10
+    if limit > 50:
+        limit = 50
+    if offset < 0:
+        offset = 0
+
+    user_id_param = request.query.get("user_id")
+    user_filter = None
+    if user_id_param:
+        try:
+            user_filter = int(user_id_param)
+        except ValueError:
+            return _bad_request("user_id должен быть числом")
+
+    def _fetch():
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        params = []
+        where_clause = ""
+        if user_filter is not None:
+            where_clause = "WHERE user_id = ?"
+            params.append(user_filter)
+        params.extend([limit + 1, offset])
+        c.execute(
+            f"""
+            SELECT * FROM web_reviews
+            {where_clause}
+            ORDER BY datetime(created_at) DESC
+            LIMIT ? OFFSET ?
+            """,
+            params,
+        )
+        rows = c.fetchall()
+        conn.close()
+        return rows
+
+    try:
+        rows = await asyncio.to_thread(_fetch)
+    except Exception as e:
+        logger.error(f"DB read error (web_reviews): {e}")
+        return web.json_response({"ok": False, "error": "Не удалось получить отзывы"}, status=500)
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = []
+    for row in rows:
+        items.append({
+            "id": row["id"],
+            "created_at": row["created_at"],
+            "createdAt": row["created_at"],
+            "category": row["category"],
+            "rating": row["rating"],
+            "display_name": row["display_name"],
+            "displayName": row["display_name"],
+            "tea_title": row["tea_title"],
+            "teaTitle": row["tea_title"],
+            "liked_most": row["liked_most"] or "Ничего",
+            "likedMost": row["liked_most"] or "Ничего",
+            "text": row["text"],
+        })
+
+    return web.json_response({"items": items, "hasMore": has_more})
+
+
+async def serve_index(request: web.Request) -> web.Response:
+    return web.FileResponse(path=os.path.join(BASE_DIR, "index.html"))
+
+
+def build_web_app() -> web.Application:
+    app = web.Application()
+    app["bot"] = telegram.Bot(BOT_TOKEN)
+    app.router.add_get("/", serve_index)
+    app.router.add_get("/webapp", serve_index)
+    app.router.add_post("/api/review", api_create_review)
+    app.router.add_get("/api/reviews", api_get_reviews)
+    app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
+    return app
+
+
+def start_web_server_background():
+    """Запускает aiohttp WebApp в отдельном потоке, чтобы не мешать polling."""
+    def _run():
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        web.run_app(build_web_app(), host=WEBAPP_HOST, port=WEBAPP_PORT, handle_signals=False)
+
+    thread = threading.Thread(target=_run, name="webapp-server", daemon=True)
+    thread.start()
+    logger.info(f"WebApp сервер запущен на http://{WEBAPP_HOST}:{WEBAPP_PORT}")
+    return thread
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -788,6 +1137,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error(f"Update {update} caused error {context.error}")
 def main() -> None:
     """Run the bot."""
+    start_web_server_background()
     application = Application.builder().token(BOT_TOKEN).read_timeout(30).write_timeout(30).connect_timeout(30).pool_timeout(30).build()
     application.add_handler(CommandHandler("start", start_command))
     # <<< FIXED: Remove separate handler, add as fallback to conv_handler

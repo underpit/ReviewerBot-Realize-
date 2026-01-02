@@ -1,16 +1,24 @@
-# Step 1: Use official Python base image (lightweight, matches your Python 3.11)
+# Base image
 FROM python:3.11-slim
 
-# Step 2: Set working directory in container
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    WEBAPP_HOST=0.0.0.0 \
+    WEBAPP_PORT=8080
+
 WORKDIR /app
 
-# Step 3: Copy all files (code, configs, JSON) to container
-COPY . .
-
-# Step 4: Install dependencies from requirements.txt
+# Install dependencies
+COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Step 5: Run the bot (main.py) when container starts
-CMD ["python", "main.py"]
+# Copy project files
+COPY . .
 
-ENV DOCKER_BUILDKIT=0
+# Ensure uploads dir exists for photos
+RUN mkdir -p /app/uploads
+
+# Expose webapp port (bot still uses long polling)
+EXPOSE 8080
+
+CMD ["python3", "main.py"]
