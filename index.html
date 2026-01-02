@@ -243,6 +243,41 @@
     .status.ok{ border-color: rgba(48,209,88,.35); background: rgba(48,209,88,.10); color: rgba(255,255,255,.85); }
     .status.bad{ border-color: rgba(255,69,58,.35); background: rgba(255,69,58,.10); color: rgba(255,255,255,.85); }
 
+    .modal{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.6);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:50;
+    }
+    .modalCard{
+      width:100%;
+      max-width:380px;
+      background:#0c1014;
+      border: 1px solid var(--border);
+      border-radius:16px;
+      padding:18px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .modalTitle{ font-size:16px; font-weight:700; }
+    .modalText{ font-size:14px; line-height:1.4; color: rgba(255,255,255,.82); }
+    .coupon{
+      border: 1px dashed rgba(48,209,88,.65);
+      background: rgba(48,209,88,.08);
+      color: rgba(48,209,88,.95);
+      font-weight:700;
+      padding: 10px 12px;
+      border-radius: 12px;
+      letter-spacing: 0.08em;
+      text-align:center;
+    }
+
     /* history list */
     .list{ display:flex; flex-direction:column; gap:10px; }
     .item{
@@ -312,7 +347,6 @@
       <div class="stack">
         <button class="btn" id="goReview">Оставить отзыв</button>
         <button class="btn secondary" id="goHistory">История</button>
-        <div class="small">Микро-UX: подсветка ошибок, авто-скролл к первому неверному полю.</div>
       </div>
     </div>
   </section>
@@ -478,6 +512,15 @@
   </section>
 </div>
 
+<div class="modal hidden" id="successModal">
+  <div class="modalCard">
+    <div class="modalTitle">Отзыв опубликован</div>
+    <div class="modalText" id="promoText">Спасибо за отзыв!</div>
+    <div class="coupon hidden" id="promoCode"></div>
+    <button class="btn" id="closeSuccess" type="button">Понятно</button>
+  </div>
+</div>
+
 <script>
 (() => {
   const tg = window.Telegram?.WebApp ?? null;
@@ -544,6 +587,10 @@
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
   const statusBox = document.getElementById('statusBox');
+  const successModal = document.getElementById('successModal');
+  const promoTextEl = document.getElementById('promoText');
+  const promoCodeEl = document.getElementById('promoCode');
+  const closeSuccess = document.getElementById('closeSuccess');
 
   const historyHint = document.getElementById('historyHint');
   const historyList = document.getElementById('historyList');
@@ -574,6 +621,7 @@
   };
 
   let history = { offset:0, limit:10, hasMore:true };
+  let promoData = null;
 
   // ---------- Telegram init
   if (tg && isTelegram){
@@ -658,6 +706,10 @@
 
   reloadHistory.addEventListener('click', () => loadHistory(true));
   loadMoreBtn.addEventListener('click', () => loadHistory(false));
+  closeSuccess.addEventListener('click', hideSuccessModal);
+  successModal.addEventListener('click', (e) => {
+    if (e.target === successModal) hideSuccessModal();
+  });
 
   // ---------- Router
   function nav(route){
@@ -718,6 +770,7 @@
     state.category = cat;
     haptic('impact','light');
     clearRowError(reviewTopCard, errCategory);
+    syncReviewUI();
     openFormForCategory();
   }
 
@@ -982,9 +1035,8 @@
       haptic('notification','success');
       toast('Отзыв отправлен ✅', 'ok');
 
-      resetForm(true);
-      formCard.classList.add('hidden');
-      if (tg && isTelegram) tg.MainButton.hide();
+      const promo = await loadPromo();
+      showSuccessModal(promo);
     }catch(e){
       console.error(e);
       haptic('notification','error');
@@ -1038,6 +1090,38 @@
       historyFooter.textContent = 'Проверь backend /api/reviews.';
       loadMoreBtn.disabled = true;
     }
+  }
+
+  // ---------- Promo modal
+  async function loadPromo(){
+    if (promoData) return promoData;
+    try{
+      const res = await fetch('/promo.json');
+      if (!res.ok) return null;
+      promoData = await res.json();
+      return promoData;
+    }catch(e){
+      console.error('promo fetch failed', e);
+      return null;
+    }
+  }
+
+  function showSuccessModal(promo){
+    const text = promo?.text || 'Спасибо за отзыв!';
+    const code = promo?.code || '';
+    promoTextEl.textContent = text;
+    if (code){
+      promoCodeEl.textContent = code;
+      promoCodeEl.classList.remove('hidden');
+    } else {
+      promoCodeEl.classList.add('hidden');
+      promoCodeEl.textContent = '';
+    }
+    successModal.classList.remove('hidden');
+  }
+
+  function hideSuccessModal(){
+    successModal.classList.add('hidden');
   }
 
   function renderHistoryItem(r){

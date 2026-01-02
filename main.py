@@ -300,6 +300,7 @@ def _validate_payload(payload_raw: str) -> tuple[dict, str | None]:
     created_at = payload.get("createdAt") or payload.get("created_at") or datetime.utcnow().isoformat()
     tg_user = payload.get("tgUser") or payload.get("tg_user") or {}
     user_id = tg_user.get("id")
+    tg_username = tg_user.get("username") if isinstance(tg_user, dict) else None
 
     review = {
         "created_at": created_at,
@@ -313,6 +314,7 @@ def _validate_payload(payload_raw: str) -> tuple[dict, str | None]:
         "text": text,
         "photo_path": None,
         "raw_payload": payload_raw,
+        "tg_username": tg_username,
     }
     return review, None
 
@@ -380,15 +382,34 @@ def _insert_web_review(review: dict) -> int:
 
 async def _send_to_channel(bot, review: dict) -> None:
     category_title = CATEGORY_TITLES.get(review["category"], review["category"])
-    lines = [
-        f"Категория: {category_title}",
-        f"Как обращаться: {review['display_name']}",
-        f"Оценка: {review['rating']}/5",
-        f"Понравилось: {review.get('liked_most') or 'Ничего'}",
-    ]
+    stars = "⭐" * int(review.get("rating") or 0)
+    liked = review.get("liked_most") or "Ничего"
+
+    lines = ["📝 Новый отзыв", ""]
+
+    name_mode = review.get("name_mode")
+    if name_mode != "anon":
+        published = None
+        if name_mode == "tg" and review.get("tg_username"):
+            published = f"@{review['tg_username']}"
+        elif review.get("display_name"):
+            published = review["display_name"]
+        if published:
+            lines.append(f"Опубликовано: {published}")
+
+    lines.append(f"Категория: {category_title}")
+
     if review["category"] == "tea" and review.get("tea_title"):
-        lines.insert(1, f"Название: {review['tea_title']}")
-    lines.append(f"Текст: {review['text']}")
+        lines.append(f"Чай: {review['tea_title']}")
+
+    lines.append(f"Рейтинг: {stars or '—'}")
+    lines.append(f"Лучшие моменты: {liked}")
+    lines.append(f"Отзыв: {review['text']}")
+    lines.append("")
+
+    tag_category = category_title.lower()
+    lines.append(f"#отзыв #отзыв_{tag_category}")
+
     message = "\n".join(lines)
 
     if review.get("photo_path"):
@@ -517,11 +538,25 @@ async def serve_index(request: web.Request) -> web.Response:
     return web.FileResponse(path=os.path.join(BASE_DIR, "index.html"))
 
 
+async def serve_promo(request: web.Request) -> web.Response:
+    promo_path = os.path.join(BASE_DIR, "promo.json")
+    if not os.path.exists(promo_path):
+        return web.json_response({"error": "promo.json not found"}, status=404)
+    try:
+        with open(promo_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return web.json_response(data)
+    except Exception as e:
+        logger.error(f"Promo file read error: {e}")
+        return web.json_response({"error": "promo.json invalid"}, status=500)
+
+
 def build_web_app() -> web.Application:
     app = web.Application()
     app["bot"] = telegram.Bot(BOT_TOKEN)
     app.router.add_get("/", serve_index)
     app.router.add_get("/webapp", serve_index)
+    app.router.add_get("/promo.json", serve_promo)
     app.router.add_post("/api/review", api_create_review)
     app.router.add_get("/api/reviews", api_get_reviews)
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
