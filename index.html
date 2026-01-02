@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Отзывы — Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root{
       --bg:#0b0f14;
@@ -167,7 +168,9 @@
     }
     .star:active{ transform: scale(.96); }
     .star svg{ width:18px; height:18px; opacity:.9; }
-    .star.on{ background: rgba(78,161,255,.18); border-color: rgba(78,161,255,.45); }
+    .star svg path{ fill: transparent; transition: fill .2s ease; }
+    .star.on{ background: rgba(78,161,255,.18); border-color: rgba(78,161,255,.45); color: var(--accent); }
+    .star.on svg path{ fill: currentColor; }
 
     /* liked options (single select) */
     .chips{ display:flex; flex-wrap:wrap; gap:8px; }
@@ -441,20 +444,14 @@
 
       <div style="height:12px"></div>
 
-      <label class="small" style="display:flex; gap:10px; margin:0; cursor:pointer;" id="consentRow">
-        <input id="consent" type="checkbox" style="margin-top:2px; transform:scale(1.1);" />
-        <span>Я согласен(а), что отзыв будет отправлен администратору/в канал.</span>
-      </label>
-      <div class="errText" id="errConsent">Нужно поставить галочку согласия.</div>
-
-      <div style="height:12px"></div>
-
       <button class="btn" id="submitBtn" disabled>Отправить</button>
       <div style="height:10px"></div>
       <button class="btn secondary" id="resetBtn" type="button">Очистить форму</button>
 
       <div style="height:12px"></div>
       <div class="status" id="statusBox"></div>
+      <div style="height:12px"></div>
+      <div class="small">Все отзывы публикуются в ОТЗЫВЫ ИЧП @otzivy_Ipuer_ru</div>
     </div>
   </section>
 
@@ -484,6 +481,7 @@
 <script>
 (() => {
   const tg = window.Telegram?.WebApp ?? null;
+  const isTelegram = Boolean(tg?.initData || tg?.initDataUnsafe?.user);
 
   // ---------- DOM
   const envBadge = document.getElementById('envBadge');
@@ -543,10 +541,6 @@
   const freeText = document.getElementById('freeText');
   const errText = document.getElementById('errText');
 
-  const consentRow = document.getElementById('consentRow');
-  const consent = document.getElementById('consent');
-  const errConsent = document.getElementById('errConsent');
-
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
   const statusBox = document.getElementById('statusBox');
@@ -566,7 +560,7 @@
   };
 
   // ---------- State
-  const tgUser = tg?.initDataUnsafe?.user ?? null;
+  const tgUser = isTelegram ? (tg?.initDataUnsafe?.user ?? null) : null;
   const userId = tgUser?.id ?? null;
 
   let state = {
@@ -582,7 +576,7 @@
   let history = { offset:0, limit:10, hasMore:true };
 
   // ---------- Telegram init
-  if (tg){
+  if (tg && isTelegram){
     envBadge.textContent = 'Telegram';
     try{
       tg.ready();
@@ -620,7 +614,7 @@
 
   collapseFormBtn.addEventListener('click', () => {
     formCard.classList.add('hidden');
-    if (tg) tg.MainButton.hide();
+    if (tg && isTelegram) tg.MainButton.hide();
   });
 
   nameModeGrid.addEventListener('click', (e) => {
@@ -659,11 +653,6 @@
     clearFieldError(freeText, errText);
     syncFormUI();
   });
-  consent.addEventListener('change', () => {
-    if (consent.checked) clearRowError(consentRow, errConsent);
-    syncFormUI();
-  });
-
   submitBtn.addEventListener('click', submitReview);
   resetBtn.addEventListener('click', () => resetForm(false));
 
@@ -681,13 +670,13 @@
     if (route === 'home'){
       title.textContent = 'Отзывы';
       subtitle.textContent = 'Выберите действие';
-      if (tg){ tg.BackButton.hide(); tg.MainButton.hide(); }
+      if (tg && isTelegram){ tg.BackButton.hide(); tg.MainButton.hide(); }
     }
 
     if (route === 'review'){
       title.textContent = 'Оставить отзыв';
       subtitle.textContent = 'Обращение, категория и форма';
-      if (tg){ tg.BackButton.show(); tg.MainButton.hide(); }
+      if (tg && isTelegram){ tg.BackButton.show(); tg.MainButton.hide(); }
       syncWho();
       initReviewDefaults();
       syncReviewUI();
@@ -698,7 +687,7 @@
     if (route === 'history'){
       title.textContent = 'История';
       subtitle.textContent = 'Отзывы из базы данных';
-      if (tg){ tg.BackButton.show(); tg.MainButton.hide(); }
+      if (tg && isTelegram){ tg.BackButton.show(); tg.MainButton.hide(); }
       syncWho();
       loadHistory(true);
     }
@@ -792,11 +781,17 @@
   }
 
   function setLikedMost(value){
-    if (state.likedMost === value) state.likedMost = null;
-    else state.likedMost = value;
+    if (state.likedMost === value) {
+      state.likedMost = null;
+    } else {
+      state.likedMost = value;
+    }
 
     likedChips.querySelectorAll('.chip').forEach(ch => {
-      ch.classList.toggle('on', ch.dataset.value === state.likedMost);
+      const chipValue = ch.dataset.value;
+      const selectAll = state.likedMost === 'ВСË' || state.likedMost === 'ВСЕ' || state.likedMost === 'ВСЁ';
+      const shouldHighlight = selectAll ? true : chipValue === state.likedMost;
+      ch.classList.toggle('on', shouldHighlight);
     });
 
     haptic('impact','light');
@@ -880,11 +875,6 @@
       issues.push({ el: freeText, msgEl: errText, type:'field' });
     }
 
-    // consent
-    if (!consent.checked){
-      issues.push({ el: consentRow, msgEl: errConsent, type:'row' });
-    }
-
     // apply errors
     issues.forEach((i, idx) => {
       if (i.type === 'field') setFieldError(i.el, i.msgEl);
@@ -904,15 +894,14 @@
     const teaPhotoOk = state.category !== 'tea' || !!state.photoFile;
     const ratingOk = state.rating >= 1;
     const textOk = (freeText.value || '').trim().length >= 3;
-    const consentOk = consent.checked;
-    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && consentOk && !state.sending;
+    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && !state.sending;
   }
 
   function syncFormUI(){
     const ok = isFormValidQuick();
     submitBtn.disabled = !ok;
 
-    if (tg){
+    if (tg && isTelegram){
       tg.MainButton.setText(state.sending ? 'Отправляем…' : 'Отправить');
       if (!formCard.classList.contains('hidden')){
         tg.MainButton.show();
@@ -940,7 +929,6 @@
     removePhoto();
 
     freeText.value = '';
-    consent.checked = false;
 
     hideStatus();
     clearAllErrors();
@@ -996,7 +984,7 @@
 
       resetForm(true);
       formCard.classList.add('hidden');
-      if (tg) tg.MainButton.hide();
+      if (tg && isTelegram) tg.MainButton.hide();
     }catch(e){
       console.error(e);
       haptic('notification','error');
@@ -1103,7 +1091,6 @@
     clearRowError(reviewTopCard, errCategory);
     clearRowError(dropZone, errTeaPhoto);
     clearRowError(ratingRow, errRating);
-    clearRowError(consentRow, errConsent);
   }
   function shake(el){
     el.classList.remove('shake');
@@ -1125,7 +1112,7 @@
 
   function haptic(type, style){
     try{
-      if (!tg?.HapticFeedback) return;
+      if (!isTelegram || !tg?.HapticFeedback) return;
       if (type === 'impact') tg.HapticFeedback.impactOccurred(style || 'light');
       if (type === 'notification') tg.HapticFeedback.notificationOccurred(style || 'success');
     }catch(e){}

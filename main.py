@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from enum import IntEnum
 import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -106,7 +106,29 @@ logger = logging.getLogger(__name__)
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [["Оставить отзыв", "История", "Помощь"]], resize_keyboard=True, one_time_keyboard=False
+        [["WebApp", "Помощь"]], resize_keyboard=True, one_time_keyboard=False
+    )
+
+
+def main_menu_inline() -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton("Открыть WebApp", web_app=WebAppInfo(WEBAPP_URL)),
+            InlineKeyboardButton("В браузере", url=WEBAPP_URL),
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+async def send_webapp_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отправляет основную ссылку на WebApp и кнопку."""
+    if update.effective_chat.type != "private":
+        return
+    text = "Открыть форму отзывов в WebApp:"
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=text,
+        reply_markup=main_menu_inline(),
     )
 
 # ========================================
@@ -519,29 +541,13 @@ def start_web_server_background():
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles /start command, shows buttons to start review or view history."""
-    if update.message.chat.type != "private":
-        await update.message.reply_text("Please use this bot in a private chat.")
-        return
-    await update.message.reply_text("Приветствую! Выберите действие:", reply_markup=main_menu_keyboard())
+    """На /start просто отдаем ссылку на WebApp."""
+    await send_webapp_link(update, context)
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Shows short help with restart option."""
-    if update.message.chat.type != "private":
-        await update.message.reply_text("Пожалуйста, используйте бота в личных сообщениях.")
-        return
-    help_text = (
-        "Кратко о работе бота:\n"
-        "• «Оставить отзыв» — пройти шаги и подготовить публикацию.\n"
-        "• «История» — посмотреть ранее отправленные отзывы.\n"
-        "• В превью можно редактировать части отзыва перед отправкой.\n"
-        "Нажмите «Перезапустить», чтобы очистить текущий диалог и начать сначала."
-    )
-    keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Перезапустить", callback_data="restart_bot")]]
-    )
-    await update.message.reply_text(help_text, reply_markup=keyboard)
+    """Help теперь просто отдает ссылку на WebApp."""
+    await send_webapp_link(update, context)
 
 
 async def restart_interaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -550,18 +556,7 @@ async def restart_interaction(update: Update, context: ContextTypes.DEFAULT_TYPE
     if query:
         await query.answer()
     context.user_data.clear()
-    target_message = query.message if query else update.message
-    if target_message:
-        await target_message.reply_text(
-            "Сессия сброшена. Нажмите «Оставить отзыв», чтобы начать заново.",
-            reply_markup=main_menu_keyboard(),
-        )
-    else:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Сессия сброшена. Нажмите «Оставить отзыв», чтобы начать заново.",
-            reply_markup=main_menu_keyboard(),
-        )
+    await send_webapp_link(update, context)
     return ConversationHandler.END
 
 
@@ -1140,57 +1135,10 @@ def main() -> None:
     start_web_server_background()
     application = Application.builder().token(BOT_TOKEN).read_timeout(30).write_timeout(30).connect_timeout(30).pool_timeout(30).build()
     application.add_handler(CommandHandler("start", start_command))
-    # <<< FIXED: Remove separate handler, add as fallback to conv_handler
-    conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex("Оставить отзыв"), start_review)],
-        states={
-            States.NAME: [
-                CallbackQueryHandler(name_handler, pattern="^(use_username|anonymous)$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, name_text_handler),
-            ],
-            # ... all other states same
-            States.CATEGORY: [CallbackQueryHandler(category)],
-            States.TEA_PRODUCT: [MessageHandler(filters.TEXT & ~filters.COMMAND, tea_product)],
-            States.TEA_PHOTO: [
-                MessageHandler(filters.PHOTO, tea_photo),
-                MessageHandler(filters.ALL & ~filters.PHOTO & ~filters.COMMAND, tea_photo_reprompt),
-            ],
-            States.TEA_RATING: [CallbackQueryHandler(tea_rating, pattern="^rate_")],
-            States.TEA_LIKES: [CallbackQueryHandler(tea_likes, pattern="^likes_")],
-            States.TEA_REVIEW_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, tea_review_text)],
-            States.SERVICE_LIKES: [CallbackQueryHandler(service_likes_handler, pattern="^likes_")],
-            States.SERVICE_RATING: [CallbackQueryHandler(service_rating_handler, pattern="^rate_")],
-            States.SERVICE_REVIEW_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, service_review_text)],
-            States.DELIVERY_LIKES: [CallbackQueryHandler(delivery_likes_handler, pattern="^likes_")],
-            States.DELIVERY_RATING: [CallbackQueryHandler(delivery_rating_handler, pattern="^rate_")],
-            States.DELIVERY_REVIEW_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, delivery_review_text)],
-            States.PREVIEW: [CallbackQueryHandler(preview_handler, pattern="^(confirm|edit)$")],
-            States.EDIT_MENU: [CallbackQueryHandler(edit_menu_handler, pattern="^(edit_)")],
-            States.EDIT_RATING: [CallbackQueryHandler(edit_rating_handler, pattern="^rate_")],
-            States.EDIT_LIKES: [CallbackQueryHandler(edit_likes_handler, pattern="^likes_")],
-            States.EDIT_PRODUCT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_product_handler)],
-            States.EDIT_REVIEW: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_review_handler)],
-            States.EDIT_PERSON: [
-                CallbackQueryHandler(edit_person_callback, pattern="^(use_username_edit|anonymous_edit)$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, edit_person_text),
-            ],
-            States.MORE_REVIEWS: [CallbackQueryHandler(more_reviews, pattern="^more_")],
-            States.FINAL_CONFIRM: [CallbackQueryHandler(final_confirm_handler, pattern="^(publish|delete_specific|delete_all)$")],
-            States.DELETE_SPECIFIC: [CallbackQueryHandler(delete_specific_handler, pattern="^(delete_review_|back_to_confirm)")],
-        },
-        fallbacks=[
-            CommandHandler("cancel", cancel),
-            MessageHandler(filters.Regex("Перезапустить"), restart_interaction),
-            CallbackQueryHandler(restart_interaction, pattern="^restart_bot$"),
-        ],
-        per_message=False,
-    )
-    application.add_handler(conv_handler)
-    application.add_handler(MessageHandler(filters.Regex("Помощь"), help_handler))
-    application.add_handler(MessageHandler(filters.Regex("Перезапустить"), restart_interaction))
-    application.add_handler(CallbackQueryHandler(restart_interaction, pattern="^restart_bot$"))
-    # Global handler for "История" to make it work always
-    application.add_handler(MessageHandler(filters.Regex("История"), history_handler))
+    application.add_handler(CommandHandler("help", help_handler))
+    # Любые сообщения/колбэки возвращают ссылку на WebApp
+    application.add_handler(MessageHandler(filters.ALL, send_webapp_link))
+    application.add_handler(CallbackQueryHandler(send_webapp_link, pattern=".*"))
     application.add_error_handler(error_handler)
     application.run_polling(drop_pending_updates=True)
 if __name__ == "__main__":
