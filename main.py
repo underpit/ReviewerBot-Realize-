@@ -8,7 +8,14 @@ import uuid
 from datetime import datetime
 from enum import IntEnum
 import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import (
+    KeyboardButton,
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    WebAppInfo,
+)
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -105,8 +112,11 @@ logger = logging.getLogger(__name__)
 
 
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
+    webapp_info = WebAppInfo(url=WEBAPP_URL)
     return ReplyKeyboardMarkup(
-        [["Оставить отзыв", "История", "Помощь"]], resize_keyboard=True, one_time_keyboard=False
+        [[KeyboardButton("Оставить отзыв", web_app=webapp_info)]],
+        resize_keyboard=True,
+        one_time_keyboard=False,
     )
 
 # ========================================
@@ -174,6 +184,10 @@ try:
 except (FileNotFoundError, json.JSONDecodeError) as e:
     logger.error(f"Bot config error: {e}")
     bot_config = {"telegram_bot_token": "fallback_token", "channel_id": "@fallback_channel"}
+
+if not os.environ.get("WEBAPP_URL") and bot_config.get("webapp_url"):
+    WEBAPP_URL = bot_config["webapp_url"]
+
 BOT_TOKEN = bot_config["telegram_bot_token"]
 CHANNEL_ID = bot_config["channel_id"]
 # States as IntEnum for readability and faster lookups
@@ -523,7 +537,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if update.message.chat.type != "private":
         await update.message.reply_text("Please use this bot in a private chat.")
         return
-    await update.message.reply_text("Приветствую! Выберите действие:", reply_markup=main_menu_keyboard())
+    await update.message.reply_text(
+        "Приветствую! Нажмите кнопку ниже, чтобы открыть мини-приложение и оставить отзыв.",
+        reply_markup=main_menu_keyboard(),
+    )
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -533,8 +550,8 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
     help_text = (
         "Кратко о работе бота:\n"
-        "• «Оставить отзыв» — пройти шаги и подготовить публикацию.\n"
-        "• «История» — посмотреть ранее отправленные отзывы.\n"
+        "• Нажмите кнопку «Оставить отзыв», чтобы открыть мини-приложение.\n"
+        "• История доступна в мини-приложении на вкладке «История».\n"
         "• В превью можно редактировать части отзыва перед отправкой.\n"
         "Нажмите «Перезапустить», чтобы очистить текущий диалог и начать сначала."
     )
