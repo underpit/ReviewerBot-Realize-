@@ -430,8 +430,20 @@ async def _send_to_channel(bot, review: dict) -> None:
     if review.get("photo_path"):
         with open(review["photo_path"], "rb") as photo_file:
             await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=message)
+        logger.info(
+            "Web review sent to channel %s (cat=%s, photo=1, rating=%s)",
+            CHANNEL_ID,
+            review["category"],
+            review.get("rating"),
+        )
     else:
         await bot.send_message(chat_id=CHANNEL_ID, text=message)
+        logger.info(
+            "Web review sent to channel %s (cat=%s, photo=0, rating=%s)",
+            CHANNEL_ID,
+            review["category"],
+            review.get("rating"),
+        )
 
 
 async def api_create_review(request: web.Request) -> web.Response:
@@ -465,6 +477,13 @@ async def api_create_review(request: web.Request) -> web.Response:
     except Exception as e:
         logger.error(f"DB insert error (web_reviews): {e}")
         return web.json_response({"ok": False, "error": "Не удалось сохранить отзыв"}, status=500)
+    logger.info(
+        "Web review saved id=%s (cat=%s, photo=%s, user=%s)",
+        review_id,
+        review["category"],
+        bool(review["photo_path"]),
+        review.get("user_id"),
+    )
 
     bot = request.app.get("bot")
     try:
