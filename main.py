@@ -190,14 +190,28 @@ if os.path.exists(DB_PATH):
 else:
     logger.info("БД не найдена — будет создана при первом сохранении")
 
+bot_config: dict[str, str] = {}
 try:
     with open("bot_config.json", "r", encoding="utf-8") as f:
         bot_config = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError) as e:
+except FileNotFoundError:
+    bot_config = {}
+except json.JSONDecodeError as e:
     logger.error(f"Bot config error: {e}")
-    bot_config = {"telegram_bot_token": "fallback_token", "channel_id": "@fallback_channel"}
-BOT_TOKEN = bot_config["telegram_bot_token"]
-CHANNEL_ID = bot_config["channel_id"]
+    bot_config = {}
+
+env_token = os.environ.get("BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN")
+env_channel = (
+    os.environ.get("CHANNEL_ID")
+    or os.environ.get("TELEGRAM_CHANNEL_ID")
+    or os.environ.get("BOT_CHANNEL_ID")
+)
+
+BOT_TOKEN = env_token or bot_config.get("telegram_bot_token")
+CHANNEL_ID = env_channel or bot_config.get("channel_id")
+
+if not BOT_TOKEN or not CHANNEL_ID:
+    raise RuntimeError("BOT_TOKEN and CHANNEL_ID are required via env or bot_config.json")
 # States as IntEnum for readability and faster lookups
 class States(IntEnum):
     CATEGORY = 0
