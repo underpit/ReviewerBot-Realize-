@@ -33,6 +33,7 @@ from delivery import (
 from form import (
     format_tea_review, format_service_review, format_delivery_review
 )
+from typing import Optional, Tuple
 
 # ========================================
 # ФИКСИРОВАННЫЙ ПУТЬ К БД
@@ -269,7 +270,7 @@ def _bad_request(message: str) -> web.Response:
     return web.json_response({"ok": False, "error": message}, status=400)
 
 
-def _validate_payload(payload_raw: str) -> tuple[dict, str | None]:
+def _validate_payload(payload_raw: str) -> Tuple[dict, Optional[str]]:
     try:
         payload = json.loads(payload_raw)
     except json.JSONDecodeError:
@@ -333,7 +334,7 @@ def _validate_payload(payload_raw: str) -> tuple[dict, str | None]:
     return review, None
 
 
-async def _save_photo(part) -> tuple[str | None, str | None]:
+async def _save_photo(part) -> Tuple[Optional[str], Optional[str]]:
     """Сохраняет фото из multipart-части. Возвращает (path, error)."""
     filename = part.filename
     if not filename:
