@@ -602,19 +602,12 @@ async def async_main() -> None:
     )
     application.add_error_handler(error_handler)
 
-    await application.initialize()
     runner = await start_web_server(application.bot)
-
-    await application.start()
-    await application.updater.start_polling(drop_pending_updates=True)
-    logger.info("Bot polling запущен, ждём событий...")
-
     try:
-        await application.updater.idle()
+        # run_polling сам управляет start/idle/stop/shutdown и ловит SIGINT/SIGTERM
+        await application.run_polling(drop_pending_updates=True)
     finally:
         await runner.cleanup()
-        await application.stop()
-        await application.shutdown()
 
 
 if __name__ == "__main__":
