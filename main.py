@@ -326,36 +326,45 @@ async def _save_photo(part) -> Tuple[Optional[str], Optional[str]]:
 
 
 def _insert_web_review(review: dict) -> int:
+    
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    product = review.get("tea_title") if review.get("category") == "tea" else None
+    photo_id = review.get("photo_path")
+    user_id = review.get("user_id")
+    if user_id is None:
+        user_id = 0
+    is_anonymous = 1 if review.get("name_mode") == "anon" else 0
+    user_name = (review.get("display_name") or "Гость").strip() or "Гость"
+    timestamp = review.get("created_at") or datetime.utcnow().isoformat()
+
     c.execute(
         """
-        INSERT INTO web_reviews (
-            created_at, user_id, category, name_mode, display_name,
-            tea_title, rating, liked_most, text, photo_path, raw_payload, tg_username
+        INSERT INTO reviews (
+            user_id, category, product, photo_id,
+            rating, likes, review_text,
+            is_anonymous, timestamp, user_name
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            review["created_at"],
-            review["user_id"],
-            review["category"],
-            review["name_mode"],
-            review["display_name"],
-            review["tea_title"],
-            review["rating"],
-            review["liked_most"],
-            review["text"],
-            review["photo_path"],
-            review.get("raw_payload"),
-            review.get("tg_username"),
+            user_id,
+            review.get("category"),
+            product,
+            photo_id,
+            int(review.get("rating") or 0),
+            (review.get("liked_most") or "Ничего"),
+            (review.get("text") or "").strip(),
+            is_anonymous,
+            timestamp,
+            user_name,
         ),
     )
+
     review_id = c.lastrowid
     conn.commit()
     conn.close()
     return review_id
-
 
 def _format_channel_message(review: dict) -> str:
     category_title = CATEGORY_TITLES.get(review["category"], review["category"])
@@ -484,27 +493,42 @@ async def api_get_reviews(request: web.Request) -> web.Response:
             return _bad_request("user_id должен быть числом")
 
     def _fetch():
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-        params = []
-        where_clause = ""
-        if user_filter is not None:
-            where_clause = "WHERE user_id = ?"
-            params.append(user_filter)
-        params.extend([limit + 1, offset])
-        c.execute(
-            f"""
-            SELECT * FROM web_reviews
-            {where_clause}
-            ORDER BY datetime(created_at) DESC
-            LIMIT ? OFFSET ?
-            """,
-            params,
-        )
-        rows = c.fetchall()
-        conn.close()
-        return rows
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+
+            params = []
+            where = "WHERE is_deleted = 0"
+
+            if user_filter is not None:
+                where += " AND user_id = ?"
+                params.append(user_filter)
+
+            params.extend([limit + 1, offset])
+
+            c.execute(
+                f"""
+                SELECT
+                    id,
+                    timestamp,
+                    user_name,
+                    category,
+                    product,
+                    rating,
+                    likes,
+                    review_text,
+                    photo_id
+                FROM reviews
+                {where}
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            )
+            rows = c.fetchall()
+            conn.close()
+            return rows
+
 
     try:
         rows = await asyncio.to_thread(_fetch)
@@ -519,17 +543,18 @@ async def api_get_reviews(request: web.Request) -> web.Response:
         items.append(
             {
                 "id": row["id"],
-                "created_at": row["created_at"],
-                "createdAt": row["created_at"],
+                "created_at": row["timestamp"],
+                "createdAt": row["timestamp"],
                 "category": row["category"],
                 "rating": row["rating"],
-                "display_name": row["display_name"],
-                "displayName": row["display_name"],
-                "tea_title": row["tea_title"],
-                "teaTitle": row["tea_title"],
-                "liked_most": row["liked_most"] or "Ничего",
-                "likedMost": row["liked_most"] or "Ничего",
-                "text": row["text"],
+                "display_name": row["user_name"] or "Гость",
+                "displayName": row["user_name"] or "Гость",
+                "tea_title": row["product"],
+                "teaTitle": row["product"],
+                "liked_most": row["likes"] or "Ничего",
+                "likedMost": row["likes"] or "Ничего",
+                "text": row["review_text"] or "",
+                "photo": (("/" + row["photo_id"]) if (row["photo_id"] and str(row["photo_id"]).startswith("uploads/")) else None),
             }
         )
 
