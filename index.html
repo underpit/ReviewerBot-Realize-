@@ -137,6 +137,7 @@
     textarea{ min-height: 120px; resize: vertical; }
 
     .seg3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .seg2{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
     .tile{
       padding: 14px;
       border-radius: 16px;
@@ -329,7 +330,99 @@
       80% { transform: translateX(3px); }
     }
     .shake{ animation: shake .28s ease; }
-  </style>
+
+    /* --- ReviewBot tweaks --- */
+    .backBtn{
+      width:auto;
+      padding: 10px 12px;
+      border-radius: 999px;
+      /* force outlined look even if other button modifiers are present */
+      border: 1px solid rgba(78,161,255,.55) !important;
+      background: rgba(78,161,255,.16) !important;
+      color: rgba(255,255,255,.92) !important;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .01em; /* reduced spacing */
+    }
+
+    .chips2{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:10px;
+    }
+    .chips2 .chip{
+      width:100%;
+      border-radius: 14px;
+      display:flex;
+      justify-content:center;
+    }
+
+    .channelLink{
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .histPhoto{
+      width:100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 14px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+    }
+
+    /* Stars: stretch + bigger */
+    .stars{
+      width:100%;
+      justify-content: space-between;
+      gap:10px;
+    }
+    .star{
+      flex: 1 1 0;
+      width:auto;
+      height: 40px;
+      font-size: 18px;
+    }
+
+    /* Softer light theme */
+    @media (prefers-color-scheme: light){
+      :root{
+        --bg:#f4f6fb;
+        --card: rgba(0,0,0,.03);
+        --border: rgba(0,0,0,.10);
+        --text: rgba(0,0,0,.88);
+        --muted: rgba(0,0,0,.64);
+        --hint: rgba(0,0,0,.48);
+        --shadow: 0 10px 30px rgba(0,0,0,.10);
+      }
+      .tile, .chip, textarea, input{
+        background: rgba(255,255,255,.75);
+      }
+      .status{
+        background: rgba(0,0,0,.04);
+      }
+    }
+    body[data-scheme="light"]{
+      --bg:#f4f6fb;
+      --card: rgba(0,0,0,.03);
+      --border: rgba(0,0,0,.10);
+      --text: rgba(0,0,0,.88);
+      --muted: rgba(0,0,0,.64);
+      --hint: rgba(0,0,0,.48);
+      --shadow: 0 10px 30px rgba(0,0,0,.10);
+    }
+    body[data-scheme="light"] .tile,
+    body[data-scheme="light"] .chip,
+    body[data-scheme="light"] textarea,
+    body[data-scheme="light"] input{
+      background: rgba(255,255,255,.75);
+    }
+    body[data-scheme="light"] .status{ background: rgba(0,0,0,.04); }
+
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -346,7 +439,7 @@
     <div class="card">
       <div class="stack">
         <button class="btn" id="goReview">Оставить отзыв</button>
-        <button class="btn secondary" id="goHistory">История</button>
+        <button class="btn secondary" id="goHistory">История ваших отзывов</button>
       </div>
     </div>
   </section>
@@ -356,7 +449,7 @@
     <div class="card" id="reviewTopCard">
       <div class="row" style="margin-bottom:10px;">
         <span class="pill" id="whoPill">Пользователь: —</span>
-        <button class="btn ghost" id="backHomeFromReview">← Назад</button>
+        <button class="btn backBtn" id="backHomeFromReview">← НАЗАД</button>
       </div>
 
       <div style="margin-bottom:10px;">
@@ -364,16 +457,12 @@
         <div class="small">Выберите один вариант.</div>
       </div>
 
-      <div class="seg3" id="nameModeGrid">
+      <div class="seg2" id="nameModeGrid">
         <div class="tile" data-name-mode="tg">
           <strong>Имя из Telegram</strong>
           <span id="tgNameHint">—</span>
         </div>
-        <div class="tile" data-name-mode="anon">
-          <strong>Анонимно</strong>
-          <span>Будет “Гость”</span>
-        </div>
-        <div class="tile" data-name-mode="custom">
+<div class="tile" data-name-mode="custom">
           <strong>Свободный ввод</strong>
           <span>Напишу сам(а)</span>
         </div>
@@ -383,7 +472,7 @@
 
       <div id="customNameBlock" class="hidden">
         <label for="customName">Введите имя</label>
-        <input id="customName" type="text" placeholder="Например: Антон" />
+        <input id="customName" type="text" placeholder="Например: Антон или Женя" />
         <div class="errText" id="errName">Введите имя (минимум 2 символа).</div>
       </div>
 
@@ -410,6 +499,8 @@
       </div>
 
       <div class="errText" id="errCategory">Выберите категорию.</div>
+
+      <div class="status" id="statusBoxTop"></div>
     </div>
 
     <!-- FORM -->
@@ -466,7 +557,7 @@
 
       <!-- Liked most -->
       <label>Что понравилось больше всего?</label>
-      <div class="chips" id="likedChips"></div>
+      <div class="chips chips2" id="likedChips"></div>
       <div class="hint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
 
       <div style="height:12px"></div>
@@ -485,7 +576,7 @@
       <div style="height:12px"></div>
       <div class="status" id="statusBox"></div>
       <div style="height:12px"></div>
-      <div class="small">Все отзывы публикуются в ОТЗЫВЫ ИЧП @otzivy_Ipuer_ru</div>
+      <div class="small">Все отзывы публикуются в <a class="channelLink" href="https://t.me/otzivy_Ipuer_ru" target="_blank" rel="noopener">ОТЗЫВЫ ИЧП</a></div>
     </div>
   </section>
 
@@ -494,7 +585,7 @@
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
         <span class="pill" id="whoPill2">Пользователь: —</span>
-        <button class="btn ghost" id="backHomeFromHistory">← Назад</button>
+        <button class="btn backBtn" id="backHomeFromHistory">← НАЗАД</button>
       </div>
 
       <div class="row">
@@ -585,8 +676,16 @@
   const errText = document.getElementById('errText');
 
   const submitBtn = document.getElementById('submitBtn');
+
+  // In Telegram Mini App we use Telegram MainButton — hide the in-page submit button
+  if (isTelegram) {
+    submitBtn.style.display = 'none';
+  } else {
+    submitBtn.style.display = '';
+  }
   const resetBtn = document.getElementById('resetBtn');
   const statusBox = document.getElementById('statusBox');
+  const statusBoxTop = document.getElementById('statusBoxTop');
   const successModal = document.getElementById('successModal');
   const promoTextEl = document.getElementById('promoText');
   const promoCodeEl = document.getElementById('promoCode');
@@ -714,6 +813,8 @@
   // ---------- Router
   function nav(route){
     state.route = route;
+
+    hideStatus();
 
     pageHome.classList.toggle('hidden', route !== 'home');
     pageReview.classList.toggle('hidden', route !== 'review');
@@ -1130,6 +1231,7 @@
     const stars = '★'.repeat(Number(r.rating||0)) + '☆'.repeat(5 - Number(r.rating||0));
     const name = r.displayName || r.display_name || 'Гость';
     const tea = r.teaTitle || r.tea_title || null;
+    const photoUrl = r.photoUrl || r.photo_url || r.photo || r.photo_path || r.image_url || r.imageUrl || null;
     const liked = r.likedMost || r.liked_most || 'Ничего';
     const text = r.text || '';
 
@@ -1138,10 +1240,11 @@
     el.innerHTML = `
       <div class="meta">
         <span>${dt}</span>
-        <span>${escapeHtml(cat)} · <span style="color:rgba(255,255,255,.85)">${stars}</span></span>
+        <span>${escapeHtml(cat)} · <span style="color:var(--text)">${stars}</span></span>
       </div>
       <div class="small">Как обращаться: ${escapeHtml(name)}</div>
       ${tea ? `<div class="small">Чай: ${escapeHtml(tea)}</div>` : ``}
+      ${photoUrl ? `<img class="histPhoto" src="${escapeAttr(photoUrl)}" alt="Фото" loading="lazy" />` : ``}
       <div class="small">Понравилось: ${escapeHtml(liked)}</div>
       <div style="font-size:13px; line-height:1.35;">${escapeHtml(text)}</div>
     `;
@@ -1186,12 +1289,20 @@
 
   // ---------- UI helpers
   function toast(msg, kind){
-    statusBox.textContent = msg;
-    statusBox.className = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
+    const cls = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
+    // If form is collapsed (or user hasn't opened it yet), show message under the top card
+    const target = (state.route === 'review' && formCard.classList.contains('hidden')) ? statusBoxTop : statusBox;
+    if (target){
+      target.textContent = msg;
+      target.className = cls;
+    }
   }
   function hideStatus(){
-    statusBox.textContent = '';
-    statusBox.className = 'status';
+    [statusBox, statusBoxTop].forEach((el) => {
+      if (!el) return;
+      el.textContent = '';
+      el.className = 'status';
+    });
   }
 
   function haptic(type, style){
@@ -1221,6 +1332,15 @@
       .replaceAll('"','&quot;')
       .replaceAll("'","&#039;");
   }
+  function escapeAttr(str){
+    return String(str ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#39;');
+  }
+
 
   function applyTelegramTheme(tp){
     if (!tp) return;

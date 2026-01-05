@@ -5,3 +5,5 @@ __pycache__/
 Dockerfile
 *.log
 .DS_Store
+.vscode
+launch.json
