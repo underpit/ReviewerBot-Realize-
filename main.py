@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 from datetime import datetime
 from typing import Optional, Tuple
-
+import signal
 import telegram
 from aiohttp import web
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
