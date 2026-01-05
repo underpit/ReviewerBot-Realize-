@@ -579,7 +579,6 @@ async def start_web_server(bot: telegram.Bot) -> web.AppRunner:
 # Entrypoint
 # -------------------------------------------------------------
 
-
 async def async_main() -> None:
     application = (
         Application.builder()
@@ -597,16 +596,51 @@ async def async_main() -> None:
     application.add_handler(CallbackQueryHandler(callback_fallback, pattern=".*"))
     application.add_handler(
         MessageHandler(
-            filters.ALL & ~filters.StatusUpdate.WEB_APP_DATA & ~filters.COMMAND, text_fallback
+            filters.ALL & ~filters.StatusUpdate.WEB_APP_DATA & ~filters.COMMAND,
+            text_fallback,
         )
     )
     application.add_error_handler(error_handler)
 
     runner = await start_web_server(application.bot)
+
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except NotImplementedError:
+            pass
+
     try:
-        # run_polling сам управляет start/idle/stop/shutdown и ловит SIGINT/SIGTERM
-        await application.run_polling(drop_pending_updates=True)
+        # Полный “ручной” жизненный цикл PTB (без updater.idle и без run_polling)
+        await application.initialize()
+        await application.start()
+
+        # стартуем polling
+        await application.updater.start_polling(drop_pending_updates=True)
+
+        # держим процесс живым
+        await stop_event.wait()
+
     finally:
+        # Останавливаем polling корректно (чтобы не было "Updater is still running!")
+        try:
+            if application.updater and application.updater.running:
+                await application.updater.stop()
+        except Exception:
+            pass
+
+        try:
+            await application.stop()
+        except Exception:
+            pass
+
+        try:
+            await application.shutdown()
+        except Exception:
+            pass
+
         await runner.cleanup()
 
 
