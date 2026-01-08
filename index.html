@@ -624,7 +624,7 @@
       <!-- Liked most -->
       <label>Что понравилось больше всего?</label>
       <div class="chips" id="likedChips"></div>
-      <div class="hint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
+      <div class="hint">Можно выбрать несколько пунктов. Если не выбрать — отправим “Ничего”.</div>
 
       <div style="height:12px"></div>
 
@@ -775,10 +775,12 @@
     delivery: ["Скорость","Стоимость","Курьер - 🔥","ВСË"]
   };
     // "ВСЁ/ВСЕ/ВСË" should expand into full list in channel
+  // ---- LikedMost multi-select + "ВСЁ" expansion for channel
   function _normAll(v){
     return String(v || '').trim().toUpperCase()
-      .replaceAll('Ë','Ё')   // иногда прилетает латинская Ë
-      .replaceAll('Ё','Ё');  // иногда "Е" + комбинируемая диэреза
+      .replaceAll('Ë','Ё')
+      .replaceAll('Ё','Ё')
+      .replaceAll('Ë','Ё');
   }
   function isAllLiked(v){
     const n = _normAll(v);
@@ -791,18 +793,26 @@
     return low.charAt(0).toUpperCase() + low.slice(1);
   }
   function likedMostForPayload(){
-    if (!state.likedMost) return 'Ничего';
+    const opts = (LIKED_OPTIONS[state.category] || []);
+    const base = opts.filter(o => !isAllLiked(o));
+    const allToken = opts.find(isAllLiked) || 'ВСЁ';
 
-    if (isAllLiked(state.likedMost)){
-      const opts = (LIKED_OPTIONS[state.category] || [])
-        .filter(o => !isAllLiked(o))
-        .map(prettyLikedLabel);
+    const selArr = Array.isArray(state.likedMost)
+      ? state.likedMost
+      : (state.likedMost ? [state.likedMost] : []);
+    const sel = new Set(selArr);
 
-      return `Всё: (${opts.join(', ')})`;
+    if (!sel.size) return 'Ничего';
+
+    const hasAll = selArr.some(isAllLiked) || (base.length && base.every(v => sel.has(v)));
+    if (hasAll){
+      return `Всё: (${base.map(prettyLikedLabel).join(', ')})`;
     }
 
-    return state.likedMost;
+    const picked = base.filter(v => sel.has(v));
+    return picked.length ? picked.map(prettyLikedLabel).join(', ') : 'Ничего';
   }
+
 
 
   // ---------- State
@@ -814,7 +824,7 @@
     nameMode: null,
     category: null,
     rating: 0,
-    likedMost: null,
+    likedMost: [],
     photoFile: null,
     sending: false
   };
@@ -1055,26 +1065,48 @@
       b.textContent = opt;
       likedChips.appendChild(b);
     });
-    state.likedMost = null;
+    state.likedMost = [];
   }
 
   function setLikedMost(value){
-    if (state.likedMost === value) {
-      state.likedMost = null;
+    const opts = (LIKED_OPTIONS[state.category] || []);
+    const base = opts.filter(o => !isAllLiked(o));
+    const allToken = opts.find(isAllLiked) || 'ВСЁ';
+
+    if (!Array.isArray(state.likedMost)){
+      state.likedMost = state.likedMost ? [state.likedMost] : [];
+    }
+    const sel = new Set(state.likedMost);
+
+    if (isAllLiked(value)){
+      const currentlyAll = base.length && base.every(v => sel.has(v)) && sel.has(allToken);
+      if (currentlyAll){
+        sel.clear(); // toggle off
+      } else {
+        sel.clear();
+        sel.add(allToken);
+        base.forEach(v => sel.add(v));
+      }
     } else {
-      state.likedMost = value;
+      if (sel.has(value)) sel.delete(value);
+      else sel.add(value);
+
+      sel.delete(allToken);
+      if (base.length && base.every(v => sel.has(v))){
+        sel.add(allToken);
+      }
     }
 
+    state.likedMost = Array.from(sel);
+
     likedChips.querySelectorAll('.chip').forEach(ch => {
-      const chipValue = ch.dataset.value;
-      const selectAll = isAllLiked(state.likedMost);
-      const shouldHighlight = selectAll ? true : chipValue === state.likedMost;
-      ch.classList.toggle('on', shouldHighlight);
+      ch.classList.toggle('on', sel.has(ch.dataset.value));
     });
 
     haptic('impact','light');
     syncFormUI();
   }
+
 
   // ---------- Rating
   function setRating(v, withHaptic){
@@ -1192,7 +1224,7 @@
     starsWrap.querySelectorAll('.star').forEach(el => el.classList.remove('on'));
     ratingLabel.textContent = 'Выберите 1–5';
 
-    state.likedMost = null;
+    state.likedMost = [];
     likedChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('on'));
 
     teaTitle.value = '';
@@ -1214,7 +1246,7 @@
       haptic('notification','warning');
       // scroll to first issue
       issues[0].el.scrollIntoView({ behavior:'smooth', block:'center' });
-      toast('Проверьте выделенные поля 👇', 'bad');
+      toast('Проверьте выделенные поля 👆', 'bad');
       return;
     }
 
