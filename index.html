@@ -55,7 +55,7 @@
       border-radius:999px;
       background: rgba(255,255,255,.05);
       font-size:12px;
-      color: var(--muted); /* ← НЕ accent */
+      color: var(--muted);
       white-space:nowrap;
     }
 
@@ -109,6 +109,9 @@
     }
     .btn:disabled{ opacity:.45; cursor:not-allowed; filter:saturate(.6); }
 
+    /* Keep "Отправить" clickable (validation happens on click) */
+    #submitBtn[aria-busy="true"]{ opacity:.65; cursor:progress; }
+
     .pill{
       display:inline-flex;
       align-items:center;
@@ -122,8 +125,9 @@
     }
     .small{ font-size: 12px; color: var(--muted); line-height:1.35; }
     .hint{ margin-top: 8px; font-size:12px; color:var(--hint); line-height:1.35; }
+    .accentHint{ color: var(--accent) !important; font-weight: 800; }
 
-    label{ display:block; font-size:12px; color: var(--muted); margin: 0 0 8px; }
+    label{ display:block; font-size:12px; color: var(--hint); margin: 0 0 8px; }
     input[type="text"], textarea{
       width:100%;
       border: 1px solid var(--border);
@@ -137,7 +141,6 @@
     textarea{ min-height: 120px; resize: vertical; }
 
     .seg3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
-    .seg2{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
     .tile{
       padding: 14px;
       border-radius: 16px;
@@ -164,6 +167,7 @@
       display:grid; place-items:center;
       border: 1px solid var(--border);
       background: rgba(0,0,0,.22);
+      color: var(--accent); /* make outline/stroke blue even when inactive */
       cursor:pointer;
       transition: transform .08s ease, background .2s ease, border-color .2s ease;
     }
@@ -336,93 +340,68 @@
       width:auto;
       padding: 10px 12px;
       border-radius: 999px;
-      /* force outlined look even if other button modifiers are present */
       border: 1px solid rgba(78,161,255,.55) !important;
       background: rgba(78,161,255,.16) !important;
-      color: rgba(255,255,255,.92) !important;
+      color: var(--text) !important;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
       font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: .01em; /* reduced spacing */
+      letter-spacing: .01em;
     }
 
-    .chips2{
-      display:grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap:10px;
-    }
-    .chips2 .chip{
-      width:100%;
-      border-radius: 14px;
-      display:flex;
-      justify-content:center;
-    }
+    /* Promo code is clickable */
+    .coupon{ cursor:pointer; user-select:all; }
+    .copyRow{ display:flex; gap:10px; align-items:center; }
+    .copyRow .coupon{ flex:1 1 auto; }
+    .copyHint{ display:none; font-size:12px; color: var(--accent); font-weight:800; }
+    .copyHint.show{ display:block; }
 
-    .channelLink{
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      font-weight: 800;
-      color: var(--accent);
-    }
+    /* Hint under "Что понравилось..." should be accent */
+    .accentHint{ color: var(--accent) !important; font-weight: 800; }
 
-    .histPhoto{
-      width:100%;
-      max-height: 220px;
-      object-fit: cover;
-      border-radius: 14px;
-      margin-top: 10px;
-      border: 1px solid var(--border);
-    }
-
-    /* Stars: stretch + bigger */
-    .stars{
-      width:100%;
-      justify-content: space-between;
-      gap:10px;
-    }
-    .star{
-      flex: 1 1 0;
-      width:auto;
-      height: 40px;
-      font-size: 18px;
-    }
-
-    /* Softer light theme */
-    @media (prefers-color-scheme: light){
-      :root{
-        --bg:#f4f6fb;
-        --card: rgba(0,0,0,.04);
-        --border: rgba(0,0,0,.14);
-        --text: rgba(0,0,0,.88);
-        --muted: rgba(0,0,0,.68);
-        --hint: rgba(0,0,0,.55);
-        --shadow: 0 10px 30px rgba(0,0,0,.10);
-      }
-      .tile, .chip, textarea, input{
-        background: rgba(255,255,255,.85);
-      }
-      .status{
-        background: rgba(0,0,0,.04);
-      }
-    }
+    /* Light theme (driven by Telegram theme / data-scheme) */
     body[data-scheme="light"]{
       --bg:#f4f6fb;
       --card: rgba(0,0,0,.03);
-      --border: rgba(0,0,0,.10);
-      --text: rgba(0,0,0,.88);
-      --muted: rgba(0,0,0,.74);
-      --hint: rgba(0,0,0,.62);
+      --border: rgba(0,0,0,.12);
+      --text: rgba(0,0,0,.90);
+      --muted: rgba(0,0,0,.80);
+      --hint: rgba(0,0,0,.66);
       --shadow: 0 10px 30px rgba(0,0,0,.10);
     }
+    body[data-scheme="light"] input[type="text"],
+    body[data-scheme="light"] textarea,
     body[data-scheme="light"] .tile,
     body[data-scheme="light"] .chip,
-    body[data-scheme="light"] textarea,
-    body[data-scheme="light"] input{
-      background: rgba(255,255,255,.75);
+    body[data-scheme="light"] .item{
+      background: rgba(255,255,255,.82);
     }
-    body[data-scheme="light"] .status{ background: rgba(0,0,0,.04); }
+    body[data-scheme="light"] .drop{
+      border-color: rgba(0,0,0,.18);
+      background: linear-gradient(180deg, rgba(78,161,255,.10), rgba(255,255,255,.80));
+    }
+    body[data-scheme="light"] .star{
+      background: rgba(255,255,255,.85);
+    }
 
-</style>
+    /* Home buttons: always black text in light theme */
+    body[data-scheme="light"] #page-home .btn,
+    body[data-scheme="light"] #page-home .btn.secondary{
+      color: rgba(0,0,0,.92);
+    }
+
+    /* Modal should follow theme */
+    body[data-scheme="light"] .modalCard{
+      background: rgba(255,255,255,.95);
+      border-color: rgba(0,0,0,.14);
+      box-shadow: 0 12px 40px rgba(0,0,0,.20);
+    }
+    body[data-scheme="light"] .modalText{ color: rgba(0,0,0,.75); }
+    body[data-scheme="light"] .status.ok,
+    body[data-scheme="light"] .status.bad,
+    body[data-scheme="light"] .errText{ color: rgba(0,0,0,.90); }
+
+  </style>
 </head>
 <body>
 <div class="wrap">
@@ -439,7 +418,7 @@
     <div class="card">
       <div class="stack">
         <button class="btn" id="goReview">Оставить отзыв</button>
-        <button class="btn secondary" id="goHistory">История ваших отзывов</button>
+        <button class="btn secondary" id="goHistory">История</button>
       </div>
     </div>
   </section>
@@ -448,7 +427,7 @@
   <section class="grid hidden" id="page-review">
     <div class="card" id="reviewTopCard">
       <div class="row" style="margin-bottom:10px;">
-        <span class="pill" id="whoPill">Пользователь: —</span>
+        <span class="pill hidden" id="whoPill">Пользователь: —</span>
         <button class="btn backBtn" id="backHomeFromReview">← НАЗАД</button>
       </div>
 
@@ -457,12 +436,16 @@
         <div class="small">Выберите один вариант.</div>
       </div>
 
-      <div class="seg2" id="nameModeGrid">
+      <div class="seg3" id="nameModeGrid">
         <div class="tile" data-name-mode="tg">
           <strong>Имя из Telegram</strong>
           <span id="tgNameHint">—</span>
         </div>
-<div class="tile" data-name-mode="custom">
+        <div class="tile" data-name-mode="anon">
+          <strong>Анонимно</strong>
+          <span>Будет “Гость”</span>
+        </div>
+        <div class="tile" data-name-mode="custom">
           <strong>Свободный ввод</strong>
           <span>Напишу сам(а)</span>
         </div>
@@ -472,7 +455,7 @@
 
       <div id="customNameBlock" class="hidden">
         <label for="customName">Введите имя</label>
-        <input id="customName" type="text" placeholder="Например: Антон или Женя" />
+        <input id="customName" type="text" placeholder="Например: Антон" />
         <div class="errText" id="errName">Введите имя (минимум 2 символа).</div>
       </div>
 
@@ -499,8 +482,6 @@
       </div>
 
       <div class="errText" id="errCategory">Выберите категорию.</div>
-
-      <div class="status" id="statusBoxTop"></div>
     </div>
 
     <!-- FORM -->
@@ -557,26 +538,26 @@
 
       <!-- Liked most -->
       <label>Что понравилось больше всего?</label>
-      <div class="chips chips2" id="likedChips"></div>
-      <div class="hint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
+      <div class="chips" id="likedChips"></div>
+      <div class="hint accentHint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
 
       <div style="height:12px"></div>
 
       <!-- Text -->
       <label for="freeText">Отлично! А теперь напишите пару строк в произвольной форме</label>
-      <textarea id="freeText" placeholder="Пара строк…"></textarea>
+      <textarea id="freeText" placeholder="Хороший такой шу. Согревает и бодрит. Настроение хорошее. Вкус классический, приятный, ожидаемый."></textarea>
       <div class="errText" id="errText">Напишите хотя бы пару слов (минимум 3 символа).</div>
 
       <div style="height:12px"></div>
 
-      <button class="btn" id="submitBtn" disabled>Отправить</button>
+      <button class="btn" id="submitBtn">Отправить</button>
       <div style="height:10px"></div>
       <button class="btn secondary" id="resetBtn" type="button">Очистить форму</button>
 
       <div style="height:12px"></div>
       <div class="status" id="statusBox"></div>
       <div style="height:12px"></div>
-      <div class="small">Все отзывы публикуются в <a class="channelLink" href="https://t.me/otzivy_Ipuer_ru" target="_blank" rel="noopener">ОТЗЫВЫ ИЧП</a></div>
+      <div class="small">Все отзывы публикуются в ОТЗЫВЫ ИЧП @otzivy_Ipuer_ru</div>
     </div>
   </section>
 
@@ -584,7 +565,7 @@
   <section class="grid hidden" id="page-history">
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
-        <span class="pill" id="whoPill2">Пользователь: —</span>
+        <span class="pill hidden" id="whoPill2">Пользователь: —</span>
         <button class="btn backBtn" id="backHomeFromHistory">← НАЗАД</button>
       </div>
 
@@ -607,7 +588,11 @@
   <div class="modalCard">
     <div class="modalTitle">Отзыв опубликован</div>
     <div class="modalText" id="promoText">Спасибо за отзыв!</div>
-    <div class="coupon hidden" id="promoCode"></div>
+    <div class="copyRow hidden" id="promoRow">
+      <div class="coupon" id="promoCode" title="Нажмите, чтобы копировать"></div>
+      <button class="btn secondary sm" id="copyPromoBtn" type="button">Копировать</button>
+    </div>
+    <div class="copyHint" id="promoCopied">Скопировано ✅</div>
     <button class="btn" id="closeSuccess" type="button">Понятно</button>
   </div>
 </div>
@@ -676,20 +661,14 @@
   const errText = document.getElementById('errText');
 
   const submitBtn = document.getElementById('submitBtn');
-
-  // Always use in-page submit button (also inside Telegram WebApp)
-  submitBtn.style.display = '';
-
-  // In Telegram WebApp, keep Telegram MainButton hidden to avoid duplicate submit buttons
-  if (tg && isTelegram){
-    try{ tg.MainButton.hide(); }catch(e){}
-  }
   const resetBtn = document.getElementById('resetBtn');
   const statusBox = document.getElementById('statusBox');
-  const statusBoxTop = document.getElementById('statusBoxTop');
   const successModal = document.getElementById('successModal');
   const promoTextEl = document.getElementById('promoText');
+  const promoRowEl = document.getElementById('promoRow');
   const promoCodeEl = document.getElementById('promoCode');
+  const copyPromoBtn = document.getElementById('copyPromoBtn');
+  const promoCopiedHint = document.getElementById('promoCopied');
   const closeSuccess = document.getElementById('closeSuccess');
 
   const historyHint = document.getElementById('historyHint');
@@ -729,13 +708,23 @@
     try{
       tg.ready();
       tg.expand();
+      applyScheme(tg.colorScheme);
       applyTelegramTheme(tg.themeParams);
+      // follow Telegram theme changes (not OS theme)
+      tg.onEvent?.('themeChanged', () => {
+        applyScheme(tg.colorScheme);
+        applyTelegramTheme(tg.themeParams);
+      });
       tg.MainButton.hide();
       tg.BackButton.hide();
       tg.BackButton.onClick(() => nav('home'));
     }catch(e){}
   } else {
     envBadge.textContent = 'Browser';
+    // Browser fallback: use system theme
+    const mq = window.matchMedia?.('(prefers-color-scheme: light)');
+    applyScheme(mq && mq.matches ? 'light' : 'dark');
+    mq?.addEventListener?.('change', (e) => applyScheme(e.matches ? 'light' : 'dark'));
   }
 
   // ---------- Build stars
@@ -806,6 +795,11 @@
 
   reloadHistory.addEventListener('click', () => loadHistory(true));
   loadMoreBtn.addEventListener('click', () => loadHistory(false));
+
+  // Promo code copy
+  copyPromoBtn.addEventListener('click', () => copyPromo(promoCodeEl.textContent));
+  promoCodeEl.addEventListener('click', () => copyPromo(promoCodeEl.textContent));
+
   closeSuccess.addEventListener('click', hideSuccessModal);
   successModal.addEventListener('click', (e) => {
     if (e.target === successModal) hideSuccessModal();
@@ -814,8 +808,6 @@
   // ---------- Router
   function nav(route){
     state.route = route;
-
-    hideStatus();
 
     pageHome.classList.toggle('hidden', route !== 'home');
     pageReview.classList.toggle('hidden', route !== 'review');
@@ -848,9 +840,9 @@
   }
 
   function syncWho(){
-    const label = userId ? `Пользователь: ${userId}` : 'Пользователь: (нет tg user)';
-    whoPill.textContent = label;
-    whoPill2.textContent = label;
+    // User id pill is hidden (per UX request), keep it empty
+    whoPill.textContent = '';
+    whoPill2.textContent = '';
   }
 
   // ---------- Defaults
@@ -1053,8 +1045,14 @@
   }
 
   function syncFormUI(){
-    const ok = isFormValidQuick();
-    submitBtn.disabled = !ok;
+    // "Отправить" всегда выглядит активной; при клике подсвечиваем ошибки.
+    submitBtn.disabled = !!state.sending;
+    submitBtn.setAttribute('aria-busy', state.sending ? 'true' : 'false');
+
+    // We use in-page button instead of Telegram MainButton
+    if (tg && isTelegram){
+      try{ tg.MainButton.hide(); }catch(e){}
+    }
   }
 
   function resetForm(silent){
@@ -1197,11 +1195,12 @@
     const text = promo?.text || 'Спасибо за отзыв!';
     const code = promo?.code || '';
     promoTextEl.textContent = text;
+    promoCopiedHint.classList.remove('show');
     if (code){
       promoCodeEl.textContent = code;
-      promoCodeEl.classList.remove('hidden');
+      promoRowEl.classList.remove('hidden');
     } else {
-      promoCodeEl.classList.add('hidden');
+      promoRowEl.classList.add('hidden');
       promoCodeEl.textContent = '';
     }
     successModal.classList.remove('hidden');
@@ -1209,6 +1208,43 @@
 
   function hideSuccessModal(){
     successModal.classList.add('hidden');
+    promoCopiedHint.classList.remove('show');
+  }
+
+  async function copyPromo(code){
+    const value = (code || '').trim();
+    if (!value) return;
+
+    let ok = false;
+    try{
+      if (navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(value);
+        ok = true;
+      }
+    }catch(e){}
+
+    if (!ok){
+      // Fallback for older WebView
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly','');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e){}
+    }
+
+    if (ok){
+      promoCopiedHint.classList.add('show');
+      haptic('notification','success');
+    } else {
+      toast('Не удалось копировать. Нажмите и удерживайте, чтобы выделить.', 'bad');
+      haptic('notification','warning');
+    }
   }
 
   function renderHistoryItem(r){
@@ -1217,7 +1253,6 @@
     const stars = '★'.repeat(Number(r.rating||0)) + '☆'.repeat(5 - Number(r.rating||0));
     const name = r.displayName || r.display_name || 'Гость';
     const tea = r.teaTitle || r.tea_title || null;
-    const photoUrl = r.photoUrl || r.photo_url || r.photo || r.photo_path || r.image_url || r.imageUrl || null;
     const liked = r.likedMost || r.liked_most || 'Ничего';
     const text = r.text || '';
 
@@ -1230,7 +1265,6 @@
       </div>
       <div class="small">Как обращаться: ${escapeHtml(name)}</div>
       ${tea ? `<div class="small">Чай: ${escapeHtml(tea)}</div>` : ``}
-      ${photoUrl ? `<img class="histPhoto" src="${escapeAttr(photoUrl)}" alt="Фото" loading="lazy" />` : ``}
       <div class="small">Понравилось: ${escapeHtml(liked)}</div>
       <div style="font-size:13px; line-height:1.35;">${escapeHtml(text)}</div>
     `;
@@ -1275,20 +1309,12 @@
 
   // ---------- UI helpers
   function toast(msg, kind){
-    const cls = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
-    // If form is collapsed (or user hasn't opened it yet), show message under the top card
-    const target = (state.route === 'review' && formCard.classList.contains('hidden')) ? statusBoxTop : statusBox;
-    if (target){
-      target.textContent = msg;
-      target.className = cls;
-    }
+    statusBox.textContent = msg;
+    statusBox.className = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
   }
   function hideStatus(){
-    [statusBox, statusBoxTop].forEach((el) => {
-      if (!el) return;
-      el.textContent = '';
-      el.className = 'status';
-    });
+    statusBox.textContent = '';
+    statusBox.className = 'status';
   }
 
   function haptic(type, style){
@@ -1318,15 +1344,11 @@
       .replaceAll('"','&quot;')
       .replaceAll("'","&#039;");
   }
-  function escapeAttr(str){
-    return String(str ?? '')
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'",'&#39;');
-  }
 
+  function applyScheme(scheme){
+    const v = (scheme === 'light') ? 'light' : 'dark';
+    document.body.dataset.scheme = v;
+  }
 
   function applyTelegramTheme(tp){
     if (!tp) return;
