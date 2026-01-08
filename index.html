@@ -774,6 +774,36 @@
     service: ["Качество","Скорость","Профессионализм","ВСË"],
     delivery: ["Скорость","Стоимость","Курьер - 🔥","ВСË"]
   };
+    // "ВСЁ/ВСЕ/ВСË" should expand into full list in channel
+  function _normAll(v){
+    return String(v || '').trim().toUpperCase()
+      .replaceAll('Ë','Ё')   // иногда прилетает латинская Ë
+      .replaceAll('Ё','Ё');  // иногда "Е" + комбинируемая диэреза
+  }
+  function isAllLiked(v){
+    const n = _normAll(v);
+    return n === 'ВСЁ' || n === 'ВСЕ';
+  }
+  function prettyLikedLabel(v){
+    const s = String(v || '').trim();
+    if (!s) return s;
+    const low = s.toLowerCase();
+    return low.charAt(0).toUpperCase() + low.slice(1);
+  }
+  function likedMostForPayload(){
+    if (!state.likedMost) return 'Ничего';
+
+    if (isAllLiked(state.likedMost)){
+      const opts = (LIKED_OPTIONS[state.category] || [])
+        .filter(o => !isAllLiked(o))
+        .map(prettyLikedLabel);
+
+      return `Всё: (${opts.join(', ')})`;
+    }
+
+    return state.likedMost;
+  }
+
 
   // ---------- State
   const tgUser = isTelegram ? (tg?.initDataUnsafe?.user ?? null) : null;
@@ -1037,7 +1067,7 @@
 
     likedChips.querySelectorAll('.chip').forEach(ch => {
       const chipValue = ch.dataset.value;
-      const selectAll = state.likedMost === 'ВСË' || state.likedMost === 'ВСЕ' || state.likedMost === 'ВСЁ';
+      const selectAll = isAllLiked(state.likedMost);
       const shouldHighlight = selectAll ? true : chipValue === state.likedMost;
       ch.classList.toggle('on', shouldHighlight);
     });
@@ -1200,7 +1230,7 @@
       displayName: computeDisplayName(),
       teaTitle: state.category === 'tea' ? ((teaTitle.value || '').trim() || null) : null,
       rating: state.rating,
-      likedMost: state.likedMost ? state.likedMost : 'Ничего',
+      likedMost: likedMostForPayload(),
       text: (freeText.value || '').trim(),
       tgUser: tgUser ? {
         id: tgUser.id,
