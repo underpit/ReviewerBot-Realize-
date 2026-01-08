@@ -170,8 +170,7 @@ logger.info("База данных: %s", DB_PATH)
 def webapp_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton("Открыть WebApp", web_app=WebAppInfo(WEBAPP_URL)),
-            InlineKeyboardButton("В браузере", url=WEBAPP_URL),
+            InlineKeyboardButton("Оставить отзыв", web_app=WebAppInfo(WEBAPP_URL)),
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -180,7 +179,7 @@ def webapp_keyboard() -> InlineKeyboardMarkup:
 async def send_webapp_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat and update.effective_chat.type != "private":
         return
-    text = "Открыть форму отзывов в WebApp:"
+    text = "Чтобы оставить отзыв, воспользуйтесь кнопкой ниже:"
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
