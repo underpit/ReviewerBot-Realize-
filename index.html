@@ -125,7 +125,7 @@
     }
     .small{ font-size: 12px; color: var(--muted); line-height:1.35; }
     .hint{ margin-top: 8px; font-size:12px; color:var(--hint); line-height:1.35; }
-    .accentHint{ color: var(--accent) !important; font-weight: 800; }
+    .accentHint{ color: var(--hint) !important; font-weight: 500; }
 
     label{ display:block; font-size:12px; color: var(--hint); margin: 0 0 8px; }
     input[type="text"], textarea{
@@ -141,6 +141,7 @@
     textarea{ min-height: 120px; resize: vertical; }
 
     .seg3{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .seg2{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
     .tile{
       padding: 14px;
       border-radius: 16px;
@@ -159,39 +160,67 @@
     .tile strong{ font-size:14px; }
     .tile span{ font-size:12px; color: var(--muted); line-height:1.2; }
 
-    /* stars */
-    .stars{ display:flex; gap:6px; align-items:center; user-select:none; }
+    /* stars (full width) */
+    #ratingRow{
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .stars{
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      align-items: stretch;
+      user-select: none;
+    }
+
     .star{
-      width: 34px; height:34px;
-      border-radius: 12px;
-      display:grid; place-items:center;
+      width: 100%;
+      height: 46px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
       border: 1px solid var(--border);
       background: rgba(0,0,0,.22);
-      color: var(--accent); /* make outline/stroke blue even when inactive */
-      cursor:pointer;
+      cursor: pointer;
       transition: transform .08s ease, background .2s ease, border-color .2s ease;
     }
-    .star:active{ transform: scale(.96); }
+
     .star svg{ width:18px; height:18px; opacity:.9; }
     .star svg path{ fill: transparent; transition: fill .2s ease; }
+    .star:active{ transform: scale(.98); }
     .star.on{ background: rgba(78,161,255,.18); border-color: rgba(78,161,255,.45); color: var(--accent); }
     .star.on svg path{ fill: currentColor; }
 
-    /* liked options (single select) */
-    .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+
+    /* liked options: 2x2 grid */
+    .chips{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
     .chip{
+      width: 100%;
+      text-align: center;
+      font-weight: 600;          /* одинаковый вес всегда */
       border: 1px solid var(--border);
       background: rgba(0,0,0,.18);
-      color: var(--accent);
-      border-radius: 999px;
-      padding: 9px 10px;
+      color: var(--muted);
+      border-radius: 14px;       /* чуть “кнопочнее” */
+      padding: 11px 10px;
       font-size: 12px;
-      cursor:pointer;
-      user-select:none;
+      cursor: pointer;
+      user-select: none;
       transition: transform .08s ease, border-color .2s ease, background .2s ease, color .2s ease;
     }
+
     .chip:active{ transform: scale(.99); }
+
     .chip.on{
+      font-weight: 600;          /* НЕ меняется при выборе */
       border-color: rgba(78,161,255,.45);
       background: rgba(78,161,255,.14);
       color: var(--accent);
@@ -400,6 +429,66 @@
     body[data-scheme="light"] .status.ok,
     body[data-scheme="light"] .status.bad,
     body[data-scheme="light"] .errText{ color: rgba(0,0,0,.90); }
+    body[data-scheme="light"] .section-title,
+    body[data-scheme="light"] .field-title,
+    body[data-scheme="light"] .question-title,
+    body[data-scheme="light"] h2,
+    body[data-scheme="light"] h3,
+    body[data-scheme="light"] .form-step-title {
+      color: rgba(16, 16, 16, 0.88) !important; /* темнее */
+    }
+    body[data-scheme="light"] .hint,
+    body[data-scheme="light"] .helper,
+    body[data-scheme="light"] .helper-text,
+    body[data-scheme="light"] .field-hint,
+    body[data-scheme="light"] .tip,
+    body[data-scheme="light"] .subnote {
+      color: rgba(16, 16, 16, 0.50) !important; /* блекло-серый */
+    }
+    body[data-scheme="light"] .option-btn.is-active,
+    body[data-scheme="light"] .option-btn.active,
+    body[data-scheme="light"] .option-btn.selected,
+    body[data-scheme="light"] .chip.is-active,
+    body[data-scheme="light"] .chip.active,
+    body[data-scheme="light"] .chip.selected,
+    body[data-scheme="light"] .pill.is-active,
+    body[data-scheme="light"] .pill.active,
+    body[data-scheme="light"] .pill.selected,
+    body[data-scheme="light"] .toggle-btn.is-active,
+    body[data-scheme="light"] .toggle-btn.active,
+    body[data-scheme="light"] .toggle-btn.selected,
+    body[data-scheme="light"] .seg-btn.is-active,
+    body[data-scheme="light"] .seg-btn.active,
+    body[data-scheme="light"] .seg-btn.selected {
+      background: rgba(0, 122, 255, 0.14) !important;
+      border-color: rgba(0, 122, 255, 0.55) !important;
+      box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.22) !important;
+      color: rgba(16,16,16,0.92) !important;
+    }
+    body[data-scheme="light"] .option-btn:active,
+    body[data-scheme="light"] .chip:active,
+    body[data-scheme="light"] .pill:active,
+    body[data-scheme="light"] .toggle-btn:active,
+    body[data-scheme="light"] .seg-btn:active {
+      transform: translateY(1px);
+    }
+    .footer-link{
+      text-decoration: none;
+      font-weight: 600;
+    }
+    body[data-scheme="light"] .footer-link{ color: rgba(0,122,255,0.95); }
+    body[data-scheme="dark"]  .footer-link{ color: rgba(121,179,255,0.95); }
+    .footer-link:active{ opacity: .75; }
+    body[data-scheme="light"] .tile.on,
+    body[data-scheme="light"] .chip.on,
+    body[data-scheme="light"] .star.on{
+      border-color: rgba(78,161,255,.55) !important;
+      background: rgba(78,161,255,.10) !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      filter: none !important;
+    }
+
 
   </style>
 </head>
@@ -436,14 +525,10 @@
         <div class="small">Выберите один вариант.</div>
       </div>
 
-      <div class="seg3" id="nameModeGrid">
+      <div class="seg2" id="nameModeGrid">
         <div class="tile" data-name-mode="tg">
           <strong>Имя из Telegram</strong>
           <span id="tgNameHint">—</span>
-        </div>
-        <div class="tile" data-name-mode="anon">
-          <strong>Анонимно</strong>
-          <span>Будет “Гость”</span>
         </div>
         <div class="tile" data-name-mode="custom">
           <strong>Свободный ввод</strong>
@@ -455,7 +540,7 @@
 
       <div id="customNameBlock" class="hidden">
         <label for="customName">Введите имя</label>
-        <input id="customName" type="text" placeholder="Например: Антон" />
+        <input id="customName" type="text" placeholder="Например: Антон или Инна" />
         <div class="errText" id="errName">Введите имя (минимум 2 символа).</div>
       </div>
 
@@ -539,14 +624,16 @@
       <!-- Liked most -->
       <label>Что понравилось больше всего?</label>
       <div class="chips" id="likedChips"></div>
-      <div class="hint accentHint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
+      <div class="hint">Можно выбрать один пункт. Если не выбрать — отправим “Ничего”.</div>
 
       <div style="height:12px"></div>
 
       <!-- Text -->
       <label for="freeText">Отлично! А теперь напишите пару строк в произвольной форме</label>
-      <textarea id="freeText" placeholder="Хороший такой шу. Согревает и бодрит. Настроение хорошее. Вкус классический, приятный, ожидаемый."></textarea>
+      <textarea id="freeText" placeholder="Например: Хороший такой шу. Согревает и бодрит. Настроение хорошее. Вкус классический, приятный, ожидаемый..."></textarea>
+      <div class="small" id="textCounter">0 / 10000</div>
       <div class="errText" id="errText">Напишите хотя бы пару слов (минимум 3 символа).</div>
+      <div class="errText" id="errTextLimit">Превышен лимит: максимум 10 000 символов.</div>
 
       <div style="height:12px"></div>
 
@@ -557,7 +644,7 @@
       <div style="height:12px"></div>
       <div class="status" id="statusBox"></div>
       <div style="height:12px"></div>
-      <div class="small">Все отзывы публикуются в ОТЗЫВЫ ИЧП @otzivy_Ipuer_ru</div>
+      <div class="small">Все отзывы публикуются в <a class="footer-link" href="https://t.me/otzivy_Ipuer_ru" target="_blank" rel="noopener">ОТЗЫВЫ ИЧП</a></div>
     </div>
   </section>
 
@@ -659,6 +746,9 @@
 
   const freeText = document.getElementById('freeText');
   const errText = document.getElementById('errText');
+  const textCounter = document.getElementById('textCounter');
+  const errTextLimit = document.getElementById('errTextLimit');
+  const MAX_TEXT_LEN = 10000;
 
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
@@ -787,6 +877,7 @@
     syncFormUI();
   });
   freeText.addEventListener('input', () => {
+    syncTextLimit();
     clearFieldError(freeText, errText);
     syncFormUI();
   });
@@ -804,6 +895,16 @@
   successModal.addEventListener('click', (e) => {
     if (e.target === successModal) hideSuccessModal();
   });
+  function syncTextLimit(){
+    const v = freeText.value || '';
+    if (v.length > MAX_TEXT_LEN){
+      freeText.value = v.slice(0, MAX_TEXT_LEN);
+      setFieldError(freeText, errTextLimit);
+    } else {
+      clearFieldError(freeText, errTextLimit);
+    }
+    if (textCounter) textCounter.textContent = `${freeText.value.length} / ${MAX_TEXT_LEN}`;
+  }
 
   // ---------- Router
   function nav(route){
@@ -889,7 +990,6 @@
   function computeDisplayName(){
     const tgName = getTgName();
     if (state.nameMode === 'tg') return tgName || 'Гость';
-    if (state.nameMode === 'anon') return 'Гость';
     if (state.nameMode === 'custom'){
       const v = (customName.value || '').trim();
       return v || 'Гость';
@@ -1040,8 +1140,9 @@
     const teaNameOk = state.category !== 'tea' || ((teaTitle.value || '').trim().length >= 2);
     const teaPhotoOk = state.category !== 'tea' || !!state.photoFile;
     const ratingOk = state.rating >= 1;
+    const textLenOk = (freeText.value || '').length <= MAX_TEXT_LEN;
     const textOk = (freeText.value || '').trim().length >= 3;
-    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && !state.sending;
+    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && textLenOk && !state.sending;
   }
 
   function syncFormUI(){
@@ -1067,6 +1168,8 @@
     removePhoto();
 
     freeText.value = '';
+    syncTextLimit();
+    clearFieldError(freeText, errTextLimit);
 
     hideStatus();
     clearAllErrors();
