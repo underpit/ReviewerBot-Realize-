@@ -950,7 +950,7 @@
   function initReviewDefaults(){
     const tgName = getTgName();
     tgNameHint.textContent = tgName ? `Будет “${tgName}”` : 'Имя недоступно (не Telegram)';
-    if (!state.nameMode) state.nameMode = tgName ? 'tg' : 'anon';
+    if (!state.nameMode) state.nameMode = tgName ? 'tg' : 'custom';
   }
 
   // ---------- Name + category
@@ -983,8 +983,9 @@
   function getTgName(){
     const u = tgUser;
     if (!u) return null;
+    if (u.username) return '@' + u.username;
     const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
-    return full || u.username || null;
+    return full || null;
   }
 
   function computeDisplayName(){
