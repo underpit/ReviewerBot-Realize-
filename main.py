@@ -32,12 +32,14 @@ WEBAPP_HOST = os.environ.get("WEBAPP_HOST", "0.0.0.0")
 WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8080"))
 WEBAPP_URL = os.environ.get("WEBAPP_URL", f"http://{WEBAPP_HOST}:{WEBAPP_PORT}/webapp")
 
-MAX_PHOTO_SIZE = 8 * 1024 * 1024  # 8 MB
 ALLOWED_CATEGORIES = {"tea", "service", "delivery"}
 ALLOWED_NAME_MODES = {"tg", "anon", "custom"}
 ALLOWED_PHOTO_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 CATEGORY_TITLES = {"tea": "Чай", "service": "Сервис", "delivery": "Доставка"}
-
+# Лимиты 
+MAX_PHOTO_SIZE = 8 * 1024 * 1024  # 8 MB
+TG_CAPTION_LIMIT = 1024
+TG_MESSAGE_LIMIT = 4096
 
 def load_env_file() -> None:
     env_path = os.path.join(BASE_DIR, ".env")
@@ -365,6 +367,48 @@ def _insert_web_review(review: dict) -> int:
     conn.close()
     return review_id
 
+def _split_text(text: str, limit: int) -> list[str]:
+    text = text or ""
+    if len(text) <= limit:
+        return [text]
+    parts = []
+    while text:
+        parts.append(text[:limit])
+        text = text[limit:]
+    return parts
+
+
+def _format_channel_caption(review: dict) -> str:
+    """Короткий caption (<=1024), без простыни текста."""
+    category_title = CATEGORY_TITLES.get(review["category"], review["category"])
+    stars = "⭐" * int(review.get("rating") or 0)
+    liked = review.get("liked_most") or "Ничего"
+
+    lines = ["📝 Новый отзыв", ""]
+
+    name_mode = review.get("name_mode")
+    if name_mode != "anon":
+        published = None
+        if name_mode == "tg" and review.get("tg_username"):
+            published = f"@{review['tg_username']}"
+        elif review.get("display_name"):
+            published = review["display_name"]
+        if published:
+            lines.append(f"Опубликовано: {published}")
+
+    lines.append(f"Категория: {category_title}")
+    if review["category"] == "tea" and review.get("tea_title"):
+        lines.append(f"Чай: {review['tea_title']}")
+
+    lines.append(f"Рейтинг: {stars or '—'}")
+    lines.append(f"Лучшие моменты: {liked}")
+    lines.append("")
+    lines.append(f"#отзыв #отзыв_{category_title.lower()}")
+
+    caption = "\n".join(lines)
+    return caption[:TG_CAPTION_LIMIT]
+
+
 def _format_channel_message(review: dict) -> str:
     category_title = CATEGORY_TITLES.get(review["category"], review["category"])
     stars = "⭐" * int(review.get("rating") or 0)
@@ -399,24 +443,23 @@ def _format_channel_message(review: dict) -> str:
 
 
 async def _send_to_channel(bot: telegram.Bot, review: dict) -> None:
-    message = _format_channel_message(review)
+    full_message = _format_channel_message(review)  # как раньше (с полным текстом)
+    caption = _format_channel_caption(review)
+
     if review.get("photo_path"):
         with open(review["photo_path"], "rb") as photo_file:
-            await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=message)
-        logger.info(
-            "Web review sent to channel %s (cat=%s, photo=1, rating=%s)",
-            CHANNEL_ID,
-            review["category"],
-            review.get("rating"),
-        )
+            await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=caption)
+
+        # полный текст — отдельным сообщением (может быть длинным)
+        text = full_message
+        for chunk in _split_text(text, TG_MESSAGE_LIMIT):
+            if chunk.strip():
+                await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
     else:
-        await bot.send_message(chat_id=CHANNEL_ID, text=message)
-        logger.info(
-            "Web review sent to channel %s (cat=%s, photo=0, rating=%s)",
-            CHANNEL_ID,
-            review["category"],
-            review.get("rating"),
-        )
+        # без фото можно оставить как было, но тоже лучше резать на 4096
+        for chunk in _split_text(full_message, TG_MESSAGE_LIMIT):
+            if chunk.strip():
+                await bot.send_message(chat_id=CHANNEL_ID, text=chunk)  
 
 
 async def api_create_review(request: web.Request) -> web.Response:
