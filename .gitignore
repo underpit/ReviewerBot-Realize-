@@ -7,4 +7,3 @@ Dockerfile
 .DS_Store
 .vscode
 launch.json
-reviews.db
