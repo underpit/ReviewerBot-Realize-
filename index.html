@@ -917,11 +917,13 @@
     if (!chip) return;
     setLikedMost(chip.dataset.value);
   });
-  dislikedChips.addEventListener('click', (e) => {
-    const chip = e.target.closest('.chip');
-    if (!chip) return;
-    setDislikedMost(chip.dataset.value);
-  });
+  if (dislikedChips){
+    dislikedChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      setDislikedMost(chip.dataset.value);
+    });
+  }
 
   pickPhotoBtn.addEventListener('click', () => photoInput.click());
   replacePhotoBtn.addEventListener('click', () => photoInput.click());
@@ -1079,6 +1081,7 @@
   }
 
   function buildChipGroup(container, opts){
+    if (!container) return;
     container.innerHTML = '';
     opts.forEach(opt => {
       const b = document.createElement('button');
@@ -1120,6 +1123,7 @@
   }
 
   function syncChipSelection(container, selection){
+    if (!container) return;
     const selected = new Set(selection || []);
     container.querySelectorAll('.chip').forEach(ch => {
       ch.classList.toggle('on', selected.has(ch.dataset.value));
@@ -1146,8 +1150,8 @@
   // ---------- Rating
   function setRating(v, withHaptic){
     state.rating = v;
-    starsWrap.querySelectorAll('.star').forEach((el, idx) => el.classList.toggle('on', idx < v));
-    ratingLabel.textContent = v ? `Оценка: ${v}/5` : 'Оценка: —';
+    if (starsWrap) starsWrap.querySelectorAll('.star').forEach((el, idx) => el.classList.toggle('on', idx < v));
+    if (ratingLabel) ratingLabel.textContent = v ? `Оценка: ${v}/5` : 'Оценка: —';
     if (v >= 1) clearRowError(ratingRow, errRating);
     if (withHaptic) haptic('impact','light');
     syncFormUI();
@@ -1256,20 +1260,22 @@
 
   function resetForm(silent){
     state.rating = 0;
-    starsWrap.querySelectorAll('.star').forEach(el => el.classList.remove('on'));
-    ratingLabel.textContent = 'Оценка: —';
+    if (starsWrap) starsWrap.querySelectorAll('.star').forEach(el => el.classList.remove('on'));
+    if (ratingLabel) ratingLabel.textContent = 'Оценка: —';
 
     state.likedMost = [];
-    likedChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('on'));
+    if (likedChips) likedChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('on'));
     state.dislikedMost = [];
-    dislikedChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('on'));
+    if (dislikedChips) dislikedChips.querySelectorAll('.chip').forEach(ch => ch.classList.remove('on'));
 
-    teaTitle.value = '';
+    if (teaTitle) teaTitle.value = '';
     removePhoto();
 
-    freeText.value = '';
-    syncTextLimit();
-    clearFieldError(freeText, errTextLimit);
+    if (freeText){
+      freeText.value = '';
+      syncTextLimit();
+      clearFieldError(freeText, errTextLimit);
+    }
 
     hideStatus();
     clearAllErrors();
