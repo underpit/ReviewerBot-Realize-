@@ -582,9 +582,9 @@
 
       <!-- TEA ONLY -->
       <div id="teaBlock" class="hidden">
-        <label for="teaTitle">Название</label>
+        <label for="teaTitle">НАЗВАНИЕ<span class="required-star">*</span></label>
         <input id="teaTitle" type="text" placeholder="Например: Шэн пуэр 2016, Дахунпао…" />
-        <div class="errText" id="errTeaTitle">Введите название чая (минимум 2 символа).</div>
+        <div class="errText" id="errTeaTitle">Введите название чая .</div>
 
         <div style="height:12px"></div>
         <!-- Photo upload -->
@@ -618,19 +618,19 @@
       <div style="height: 12px"></div>
 
       <!-- Liked most -->
-      <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
+      <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
       <div class="chips" id="likedChips"></div>
 
       <div style="height:40px"></div>
       <!-- UnLiked most -->
-      <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
+      <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
       <div class="chips" id="dislikedChips"></div>
       <div style="height:12px"></div>
 
 
       <!-- Text -->
       <label class="field-title" for="freeText">ОТЛИЧНО! А ТЕПЕРЬ НАПИШИТЕ ПАРУ СТРОК В ПРОИЗВОЛЬНОЙ ФОРМЕ<span class="required-star">*</span></label>
-      <textarea id="freeText" placeholder="Введите ваш комментарий сюда"></textarea>
+      <textarea id="freeText" placeholder="Введите ваш комментарий"></textarea>
       <div class="small" id="textCounter">0 / 4096</div>
       <div class="errText" id="errText">Оставьте свой комментарий.</div>
       <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов.</div>
@@ -973,12 +973,12 @@
     pageHistory.classList.toggle('hidden', route !== 'history');
 
     if (route === 'home'){
-      title.textContent = 'Отзывы';
+      setText(title, 'Отзывы');
       if (tg && isTelegram){ tg.BackButton.hide(); tg.MainButton.hide(); }
     }
 
     if (route === 'review'){
-      title.textContent = 'Оставить отзыв';
+      setText(title, 'Оставить отзыв');
       if (tg && isTelegram){ tg.BackButton.show(); tg.MainButton.hide(); }
       syncWho();
       initReviewDefaults();
@@ -988,8 +988,8 @@
     }
 
     if (route === 'history'){
-      title.textContent = 'История';
-      subtitle.textContent = 'Отзывы из базы данных';
+      setText(title, 'История');
+      setText(subtitle, 'Отзывы из базы данных');
       if (tg && isTelegram){ tg.BackButton.show(); tg.MainButton.hide(); }
       syncWho();
       loadHistory(true);
@@ -998,8 +998,8 @@
 
   function syncWho(){
     // User id pill is hidden (per UX request), keep it empty
-    whoPill.textContent = '';
-    whoPill2.textContent = '';
+    setText(whoPill, '');
+    setText(whoPill2, '');
   }
 
   // ---------- Defaults
@@ -1164,12 +1164,12 @@
     state.photoFile = file;
 
     const url = URL.createObjectURL(file);
-    photoImg.src = url;
-    photoPreview.style.display = 'block';
+    if (photoImg) photoImg.src = url;
+    if (photoPreview) photoPreview.style.display = 'block';
 
-    photoStatusText.textContent = `Выбрано ✅ ${file.name}`;
-    replacePhotoBtn.classList.remove('hidden');
-    removePhotoBtn.classList.remove('hidden');
+    setText(photoStatusText, `Выбрано ✅ ${file.name}`);
+    replacePhotoBtn?.classList.remove('hidden');
+    removePhotoBtn?.classList.remove('hidden');
 
     clearRowError(dropZone, errTeaPhoto);
     syncFormUI();
@@ -1177,13 +1177,13 @@
 
   function removePhoto(){
     state.photoFile = null;
-    photoInput.value = '';
-    photoImg.src = '';
-    photoPreview.style.display = 'none';
+    if (photoInput) photoInput.value = '';
+    if (photoImg) photoImg.src = '';
+    if (photoPreview) photoPreview.style.display = 'none';
 
-    photoStatusText.textContent = 'Не выбрано';
-    replacePhotoBtn.classList.add('hidden');
-    removePhotoBtn.classList.add('hidden');
+    setText(photoStatusText, 'Не выбрано');
+    replacePhotoBtn?.classList.add('hidden');
+    removePhotoBtn?.classList.add('hidden');
 
     syncFormUI();
   }
@@ -1521,12 +1521,20 @@
 
   // ---------- UI helpers
   function toast(msg, kind){
-    statusBox.textContent = msg;
-    statusBox.className = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
+    if (statusBox){
+      statusBox.textContent = msg;
+      statusBox.className = 'status show ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : '');
+    }
   }
   function hideStatus(){
-    statusBox.textContent = '';
-    statusBox.className = 'status';
+    if (statusBox){
+      statusBox.textContent = '';
+      statusBox.className = 'status';
+    }
+  }
+
+  function setText(el, text){
+    if (el) el.textContent = text;
   }
 
   function haptic(type, style){
