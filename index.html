@@ -552,7 +552,7 @@
       <div id="customNameBlock" class="hidden">
         
         <input id="customName" type="text" placeholder="Например: Антон или Инна" />
-        <div class="errText" id="errName">Введите имя.</div>
+        <div class="errText" id="errName">Введите имя</div>
       </div>
       <div style="height:10px"></div>
 
@@ -571,7 +571,7 @@
         </div>
       </div>
 
-      <div class="errText" id="errCategory">Выберите категорию.</div>
+      <div class="errText" id="errCategory">Выберите категорию</div>
     </div>
 
     <!-- FORM -->
@@ -584,14 +584,14 @@
       <div id="teaBlock" class="hidden">
         <label for="teaTitle" class="field-title">НАЗВАНИЕ<span class="required-star">*</span></label>
         <input id="teaTitle" type="text" placeholder="Например: Шу пуэр &quot;Дерево жизни&quot; или шэн пуэр Гэланхэ" />
-        <div class="errText" id="errTeaTitle">Введите название чая .</div>
+        <div class="errText" id="errTeaTitle">Введите название чая </div>
 
         <div style="height:15px"></div>
         <!-- Photo upload -->
         <div class="drop" id="dropZone">
           <div class="dropRow">
             <div class="dropTitle">
-              <strong>Фото продукта</strong>
+              <strong>Фото продукта<span class="required-star">*</span></strong>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button class="btn secondary sm" id="pickPhotoBtn" type="button">Выбрать фото</button>
@@ -603,9 +603,9 @@
           <input class="fileHidden" id="photoInput" type="file" accept="image/*" />
           <div class="preview" id="photoPreview"><img id="photoImg" alt="preview"/></div>
         </div>
-        <div class="errText" id="errTeaPhoto">Прикрепите изображение.</div>
+        <div class="errText" id="errTeaPhoto">Прикрепите изображение</div>
 
-        <div style="height:15px"></div>
+        <div style="height:20px"></div>
       </div>
 
       <!-- Rating -->
@@ -613,28 +613,29 @@
       <div class="row" id="ratingRow">
         <div class="stars" id="stars"></div>
       </div>
-      <div class="errText" id="errRating">Поставьте оценку (1–5).</div>
+      <div class="errText" id="errRating">Поставьте оценку (1–5)</div>
 
-      <div style="height:15px"></div>
+      <div style="height:20px"></div>
 
       <!-- Liked most -->
       <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
       <div class="chips" id="likedChips"></div>
 
-      <div style="height:40px"></div>
+      <div style="height:20px"></div>
       <!-- UnLiked most -->
       <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
       <div class="chips" id="dislikedChips"></div>
-      <div style="height:15px"></div>
+      <div style="height:20px"></div>
 
 
       <!-- Text -->
       <label class="field-title" for="freeText">ОТЛИЧНО! А ТЕПЕРЬ НАПИШИТЕ ПАРУ СТРОК В ПРОИЗВОЛЬНОЙ ФОРМЕ<span class="required-star">*</span></label>
       <textarea id="freeText" placeholder="Введите ваш комментарий"></textarea>
+      <div class="errText" id="errText">Оставьте свой комментарий</div>
+      <div style="height: 20px;"></div>
       <div class="small" id="textCounter">0 / 4096</div>
 
-      <div class="errText" id="errText">Оставьте свой комментарий.</div>
-      <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов.</div>
+      <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов</div>
       <div style="height:5px"></div>
       <div class="small"><span class="required-star">*</span> - обязательное поле</div>
       <div style="height:15px"></div>
