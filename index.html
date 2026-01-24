@@ -582,11 +582,11 @@
 
       <!-- TEA ONLY -->
       <div id="teaBlock" class="hidden">
-        <label for="teaTitle">НАЗВАНИЕ<span class="required-star">*</span></label>
-        <input id="teaTitle" type="text" placeholder="Например: Шэн пуэр 2016, Дахунпао…" />
+        <label for="teaTitle" class="field-title">НАЗВАНИЕ<span class="required-star">*</span></label>
+        <input id="teaTitle" type="text" placeholder="Например: Шу пуэр &quot;Дерево жизни&quot; или шэн пуэр Гэланхэ" />
         <div class="errText" id="errTeaTitle">Введите название чая .</div>
 
-        <div style="height:12px"></div>
+        <div style="height:15px"></div>
         <!-- Photo upload -->
         <div class="drop" id="dropZone">
           <div class="dropRow">
@@ -605,7 +605,7 @@
         </div>
         <div class="errText" id="errTeaPhoto">Прикрепите изображение.</div>
 
-        <div style="height:12px"></div>
+        <div style="height:15px"></div>
       </div>
 
       <!-- Rating -->
@@ -615,7 +615,7 @@
       </div>
       <div class="errText" id="errRating">Поставьте оценку (1–5).</div>
 
-      <div style="height: 12px"></div>
+      <div style="height:15px"></div>
 
       <!-- Liked most -->
       <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
@@ -623,27 +623,29 @@
 
       <div style="height:40px"></div>
       <!-- UnLiked most -->
-      <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
+      <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
       <div class="chips" id="dislikedChips"></div>
-      <div style="height:12px"></div>
+      <div style="height:15px"></div>
 
 
       <!-- Text -->
       <label class="field-title" for="freeText">ОТЛИЧНО! А ТЕПЕРЬ НАПИШИТЕ ПАРУ СТРОК В ПРОИЗВОЛЬНОЙ ФОРМЕ<span class="required-star">*</span></label>
       <textarea id="freeText" placeholder="Введите ваш комментарий"></textarea>
       <div class="small" id="textCounter">0 / 4096</div>
+
       <div class="errText" id="errText">Оставьте свой комментарий.</div>
       <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов.</div>
+      <div class="small"><span class="required-star">*</span> - обязательное поле</div>
+      <div style="height:15px"></div>
 
-      <div style="height:12px"></div>
 
       <button class="btn" id="submitBtn">Отправить</button>
       <div style="height:10px"></div>
       <button class="btn secondary" id="resetBtn" type="button">Очистить форму</button>
 
-      <div style="height:12px"></div>
+      <div style="height:15px"></div>
       <div class="status" id="statusBox"></div>
-      <div style="height:12px"></div>
+      <div style="height:15px"></div>
       <div class="small">Все отзывы публикуются в телеграмм канале <a class="footer-link" href="https://t.me/otzivy_Ipuer_ru" target="_blank" rel="noopener">ОТЗЫВЫ ИЧП</a></div>
     </div>
   </section>
