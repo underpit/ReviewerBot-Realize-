@@ -514,7 +514,6 @@
   <div class="top">
     <div class="brand">
       <h1 id="title">Отзывы</h1>
-      <p id="subtitle">Выберите действие</p>
     </div>
     <div class="badge" id="envBadge">Web</div>
   </div>
@@ -551,9 +550,11 @@
       <div style="height:10px"></div>
 
       <div id="customNameBlock" class="hidden">
+        
         <input id="customName" type="text" placeholder="Например: Антон или Инна" />
         <div class="errText" id="errName">Введите имя.</div>
       </div>
+      <div style="height:10px"></div>
 
       <div class="seg3" id="categoryGrid">
         <div class="tile" data-cat="tea">
@@ -586,13 +587,11 @@
         <div class="errText" id="errTeaTitle">Введите название чая (минимум 2 символа).</div>
 
         <div style="height:12px"></div>
-
-        <label>Прикрепить фото продукта</label>
+        <!-- Photo upload -->
         <div class="drop" id="dropZone">
           <div class="dropRow">
             <div class="dropTitle">
               <strong>Фото продукта</strong>
-              <span id="photoStatusText">Не выбрано</span>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button class="btn secondary sm" id="pickPhotoBtn" type="button">Выбрать фото</button>
@@ -603,10 +602,6 @@
 
           <input class="fileHidden" id="photoInput" type="file" accept="image/*" />
           <div class="preview" id="photoPreview"><img id="photoImg" alt="preview"/></div>
-
-          <div class="small">
-            Подсказка: нажмите “Выбрать фото”.
-          </div>
         </div>
         <div class="errText" id="errTeaPhoto">Прикрепите изображение.</div>
 
@@ -617,17 +612,16 @@
       <label class="field-title">ОЦЕНИТЬ ПО ШКАЛЕ<span class="required-star">*</span></label>
       <div class="row" id="ratingRow">
         <div class="stars" id="stars"></div>
-        <span class="pill" id="ratingLabel">Оценка: —</span>
       </div>
       <div class="errText" id="errRating">Поставьте оценку (1–5).</div>
 
-      <div style="height:12px"></div>
+      <div style="height: 12px"></div>
 
       <!-- Liked most -->
       <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
       <div class="chips" id="likedChips"></div>
 
-      <div style="height:12px"></div>
+      <div style="height:40px"></div>
       <!-- UnLiked most -->
       <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
       <div class="chips" id="dislikedChips"></div>
@@ -978,7 +972,6 @@
 
     if (route === 'home'){
       title.textContent = 'Отзывы';
-      subtitle.textContent = 'Выберите действие';
       if (tg && isTelegram){ tg.BackButton.hide(); tg.MainButton.hide(); }
     }
 
