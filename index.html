@@ -1325,7 +1325,7 @@
       fd.append('payload', JSON.stringify(payload));
       if (state.photoFile) fd.append('photo', state.photoFile, state.photoFile.name);
 
-      const res = await fetch('/api/review', { method:'POST', body: fd });
+      const res = await fetch('/api-debug/review', { method:'POST', body: fd });
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1366,7 +1366,7 @@
       params.set('offset', String(history.offset));
       params.set('limit', String(history.limit));
 
-      const res = await fetch('/api/reviews?' + params.toString());
+      const res = await fetch('/api-debug/reviews?' + params.toString());
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1395,7 +1395,7 @@
   async function loadPromo(){
     if (promoData) return promoData;
     try{
-      const res = await fetch('/promo.json');
+      const res = await fetch('/debug/promo.json');
       if (!res.ok) return null;
       promoData = await res.json();
       return promoData;

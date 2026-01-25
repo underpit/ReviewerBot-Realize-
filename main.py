@@ -29,7 +29,7 @@ FALLBACK_DB_PATH = os.path.join(FALLBACK_DB_DIR, "reviews.db")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
 WEBAPP_HOST = os.environ.get("WEBAPP_HOST", "0.0.0.0")
-WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8080"))
+WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8081"))
 WEBAPP_URL = os.environ.get("WEBAPP_URL", f"http://{WEBAPP_HOST}:{WEBAPP_PORT}/webapp")
 
 ALLOWED_CATEGORIES = {"tea", "service", "delivery"}
