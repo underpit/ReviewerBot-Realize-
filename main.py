@@ -40,6 +40,8 @@ CATEGORY_TITLES = {"tea": "Чай", "service": "Сервис", "delivery": "До
 MAX_PHOTO_SIZE = 8 * 1024 * 1024  # 8 MB
 TG_CAPTION_LIMIT = 1024
 TG_MESSAGE_LIMIT = 4096
+REVIEW_TEXT_PREFIX = "💬 Отзыв:"
+CHANNEL_SEND_LOCK = asyncio.Lock()
 
 def load_env_file() -> None:
     env_path = os.path.join(BASE_DIR, ".env")
@@ -264,6 +266,7 @@ def _validate_payload(payload_raw: str) -> Tuple[dict, Optional[str]]:
         return {}, "Текст отзыва слишком короткий"
 
     liked_most = (payload.get("likedMost") or payload.get("liked_most") or "Ничего").strip() or "Ничего"
+    disliked_most = (payload.get("dislikedMost") or payload.get("disliked_most") or "").strip()
     tea_title = payload.get("teaTitle") or payload.get("tea_title")
     if category == "tea":
         tea_title = (tea_title or "").strip()
@@ -286,6 +289,7 @@ def _validate_payload(payload_raw: str) -> Tuple[dict, Optional[str]]:
         "tea_title": tea_title,
         "rating": rating,
         "liked_most": liked_most,
+        "disliked_most": disliked_most,
         "text": text,
         "photo_path": None,
         "raw_payload": payload_raw,
@@ -383,6 +387,7 @@ def _format_channel_caption(review: dict) -> str:
     category_title = CATEGORY_TITLES.get(review["category"], review["category"])
     stars = "⭐" * int(review.get("rating") or 0)
     liked = review.get("liked_most") or "Ничего"
+    disliked = review.get("disliked_most") or ""
 
     lines = ["📝 Новый отзыв", ""]
 
@@ -402,6 +407,8 @@ def _format_channel_caption(review: dict) -> str:
 
     lines.append(f"Рейтинг: {stars or '—'}")
     lines.append(f"Лучшие моменты: {liked}")
+    if disliked:
+        lines.append(f"Не понравилось: {disliked}")
     lines.append("")
     lines.append(f"#отзыв #отзыв_{category_title.lower()}")
 
@@ -409,10 +416,11 @@ def _format_channel_caption(review: dict) -> str:
     return caption[:TG_CAPTION_LIMIT]
 
 
-def _format_channel_message(review: dict) -> str:
+def _format_channel_summary(review: dict) -> str:
     category_title = CATEGORY_TITLES.get(review["category"], review["category"])
     stars = "⭐" * int(review.get("rating") or 0)
     liked = review.get("liked_most") or "Ничего"
+    disliked = review.get("disliked_most") or ""
 
     lines = ["📝 Новый отзыв", ""]
 
@@ -433,7 +441,8 @@ def _format_channel_message(review: dict) -> str:
 
     lines.append(f"Рейтинг: {stars or '—'}")
     lines.append(f"Лучшие моменты: {liked}")
-    lines.append(f"Отзыв: {review['text']}")
+    if disliked:
+        lines.append(f"Не понравилось: {disliked}")
     lines.append("")
 
     tag_category = category_title.lower()
@@ -442,24 +451,46 @@ def _format_channel_message(review: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_review_text(review: dict) -> str:
+    text = (review.get("text") or "").strip()
+    if not text:
+        return ""
+    return f"{REVIEW_TEXT_PREFIX}\n{text}"
+
+
 async def _send_to_channel(bot: telegram.Bot, review: dict) -> None:
-    full_message = _format_channel_message(review)  # как раньше (с полным текстом)
+    summary_message = _format_channel_summary(review)
     caption = _format_channel_caption(review)
+    review_text_message = _format_review_text(review)
 
-    if review.get("photo_path"):
-        with open(review["photo_path"], "rb") as photo_file:
-            await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=caption)
+    async with CHANNEL_SEND_LOCK:
+        if review.get("photo_path"):
+            if len(summary_message) <= TG_CAPTION_LIMIT:
+                with open(review["photo_path"], "rb") as photo_file:
+                    await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=caption)
 
-        # полный текст — отдельным сообщением (может быть длинным)
-        text = full_message
-        for chunk in _split_text(text, TG_MESSAGE_LIMIT):
-            if chunk.strip():
-                await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
-    else:
-        # без фото можно оставить как было, но тоже лучше резать на 4096
-        for chunk in _split_text(full_message, TG_MESSAGE_LIMIT):
-            if chunk.strip():
-                await bot.send_message(chat_id=CHANNEL_ID, text=chunk)  
+                if review_text_message:
+                    for chunk in _split_text(review_text_message, TG_MESSAGE_LIMIT):
+                        if chunk.strip():
+                            await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+            else:
+                for chunk in _split_text(summary_message, TG_MESSAGE_LIMIT):
+                    if chunk.strip():
+                        await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+                if review_text_message:
+                    for chunk in _split_text(review_text_message, TG_MESSAGE_LIMIT):
+                        if chunk.strip():
+                            await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+                with open(review["photo_path"], "rb") as photo_file:
+                    await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file)
+        else:
+            for chunk in _split_text(summary_message, TG_MESSAGE_LIMIT):
+                if chunk.strip():
+                    await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+            if review_text_message:
+                for chunk in _split_text(review_text_message, TG_MESSAGE_LIMIT):
+                    if chunk.strip():
+                        await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
 
 
 async def api_create_review(request: web.Request) -> web.Response:
