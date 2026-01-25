@@ -656,9 +656,9 @@ def build_web_app(bot: telegram.Bot) -> web.Application:
     app["bot"] = bot
     app.router.add_get("/", serve_index)
     app.router.add_get("/webapp", serve_index)
-    app.router.add_get("/promo.json", serve_promo)
-    app.router.add_post("/api/review", api_create_review)
-    app.router.add_get("/api/reviews", api_get_reviews)
+    app.router.add_get("/debug/promo.json", serve_promo)
+    app.router.add_post("/api-debug/review", api_create_review)
+    app.router.add_get("/api-debug/review", api_get_reviews)
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
     return app
 
