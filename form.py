@@ -19,11 +19,10 @@ def format_tea_review(review_data: dict) -> str:
         likes_map = {'taste': 'Вкус', 'aroma': 'Аромат', 'feeling': 'Ощущение от чая'}
         likes = ', '.join([likes_map.get(l, l.capitalize()) for l in likes_list]) if likes_list else 'None'
 
-    message = f"📝 <b>Новый отзыв</b>\n\n"
+    message = ""
     if user_name:
         message += f"<b>Опубликовано</b>: {escape_html(user_name)}\n"
     message += (
-        f"<b>Категория</b>: {category.capitalize()}\n"
         f"<b>Чай</b>: {product}\n"
         f"<b>Рейтинг</b>: {'⭐' * rating}\n"
         f"<b>Лучшие моменты</b>: {likes}\n"
@@ -48,7 +47,7 @@ def format_service_review(review_data: dict) -> str:
         likes_map = {'quality': 'Качество сервиса', 'speed': 'Скорость обслуживания', 'professionalism': 'Профессионализм'}
         likes = ', '.join([likes_map.get(l, l.capitalize()) for l in likes_list]) if likes_list else 'None'
 
-    message = f"📝 <b>Новый отзыв</b>\n\n"
+    message = ""
     if user_name:
         message += f"<b>Опубликовано</b>: {escape_html(user_name)}\n"
     message += (
@@ -76,7 +75,7 @@ def format_delivery_review(review_data: dict) -> str:
         likes_map = {'speed': 'Скорость', 'cost': 'Стоимость', 'courier': 'Курьер - 🔥'}
         likes = ', '.join([likes_map.get(l, l.capitalize()) for l in likes_list]) if likes_list else 'None'
 
-    message = f"📝 <b>Новый отзыв</b>\n\n"
+    message = ""
     if user_name:
         message += f"<b>Опубликовано</b>: {escape_html(user_name)}\n"
     message += (

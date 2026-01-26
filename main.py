@@ -40,7 +40,7 @@ CATEGORY_TITLES = {"tea": "Чай", "service": "Сервис", "delivery": "До
 MAX_PHOTO_SIZE = 8 * 1024 * 1024  # 8 MB
 TG_CAPTION_LIMIT = 1024
 TG_MESSAGE_LIMIT = 4096
-REVIEW_TEXT_PREFIX = "💬 Отзыв:"
+REVIEW_TEXT_PREFIX = ""
 CHANNEL_SEND_LOCK = asyncio.Lock()
 
 def load_env_file() -> None:
@@ -389,7 +389,7 @@ def _format_channel_caption(review: dict) -> str:
     liked = review.get("liked_most") or "Ничего"
     disliked = review.get("disliked_most") or ""
 
-    lines = ["📝 Новый отзыв", ""]
+    lines = []
 
     name_mode = review.get("name_mode")
     if name_mode != "anon":
@@ -401,7 +401,8 @@ def _format_channel_caption(review: dict) -> str:
         if published:
             lines.append(f"Опубликовано: {published}")
 
-    lines.append(f"Категория: {category_title}")
+    if review["category"] != "tea":
+        lines.append(f"Категория: {category_title}")
     if review["category"] == "tea" and review.get("tea_title"):
         lines.append(f"Чай: {review['tea_title']}")
 
@@ -422,7 +423,7 @@ def _format_channel_summary(review: dict) -> str:
     liked = review.get("liked_most") or "Ничего"
     disliked = review.get("disliked_most") or ""
 
-    lines = ["📝 Новый отзыв", ""]
+    lines = []
 
     name_mode = review.get("name_mode")
     if name_mode != "anon":
@@ -434,7 +435,8 @@ def _format_channel_summary(review: dict) -> str:
         if published:
             lines.append(f"Опубликовано: {published}")
 
-    lines.append(f"Категория: {category_title}")
+    if review["category"] != "tea":
+        lines.append(f"Категория: {category_title}")
 
     if review["category"] == "tea" and review.get("tea_title"):
         lines.append(f"Чай: {review['tea_title']}")
@@ -455,7 +457,9 @@ def _format_review_text(review: dict) -> str:
     text = (review.get("text") or "").strip()
     if not text:
         return ""
-    return f"{REVIEW_TEXT_PREFIX}\n{text}"
+    if REVIEW_TEXT_PREFIX:
+        return f"{REVIEW_TEXT_PREFIX}\n{text}"
+    return text
 
 
 async def _send_to_channel(bot: telegram.Bot, review: dict) -> None:
@@ -634,6 +638,53 @@ async def api_get_reviews(request: web.Request) -> web.Response:
     return web.json_response({"items": items, "hasMore": has_more})
 
 
+async def api_debug_preview(request: web.Request) -> web.Response:
+    payload_raw = None
+    try:
+        if "application/json" in (request.content_type or ""):
+            data = await request.json()
+            if isinstance(data, dict) and "payload" in data:
+                payload_raw = data.get("payload")
+            else:
+                payload_raw = json.dumps(data, ensure_ascii=False)
+        else:
+            payload_raw = await request.text()
+    except Exception:
+        return _bad_request("Не удалось разобрать JSON")
+
+    if not payload_raw:
+        return _bad_request("Тело запроса пустое")
+
+    review, err = _validate_payload(payload_raw)
+    if err:
+        return _bad_request(err)
+
+    summary = _format_channel_summary(review)
+    caption = _format_channel_caption(review)
+    review_text = _format_review_text(review)
+
+    logger.info(
+        "Debug preview: category=%s name_mode=%s rating=%s",
+        review.get("category"),
+        review.get("name_mode"),
+        review.get("rating"),
+    )
+
+    return web.json_response(
+        {
+            "ok": True,
+            "summary": summary,
+            "caption": caption,
+            "review_text": review_text,
+            "summary_chunks": _split_text(summary, TG_MESSAGE_LIMIT),
+            "review_text_chunks": _split_text(review_text, TG_MESSAGE_LIMIT)
+            if review_text
+            else [],
+            "requires_photo": review.get("category") == "tea",
+        }
+    )
+
+
 async def serve_index(_: web.Request) -> web.Response:
     return web.FileResponse(path=os.path.join(BASE_DIR, "index.html"))
 
@@ -656,9 +707,12 @@ def build_web_app(bot: telegram.Bot) -> web.Application:
     app["bot"] = bot
     app.router.add_get("/", serve_index)
     app.router.add_get("/webapp", serve_index)
+    app.router.add_get("/debug", serve_index)
+    app.router.add_get("/debug/", serve_index)
     app.router.add_get("/debug/promo.json", serve_promo)
     app.router.add_post("/api-debug/review", api_create_review)
     app.router.add_get("/api-debug/review", api_get_reviews)
+    app.router.add_post("/api-debug/preview", api_debug_preview)
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
     return app
 
