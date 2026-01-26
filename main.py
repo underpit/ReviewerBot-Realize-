@@ -24,7 +24,7 @@ from telegram.ext import (
 # -------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, "reviews.db")
-FALLBACK_DB_DIR = "/root/RB2"
+FALLBACK_DB_DIR = "/root/ReviewBot_Debug/Main/"
 FALLBACK_DB_PATH = os.path.join(FALLBACK_DB_DIR, "reviews.db")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
