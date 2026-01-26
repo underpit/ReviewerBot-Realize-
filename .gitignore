@@ -12,4 +12,5 @@ launch.json
 .gitignore
 reviewbot.conf
 ipuerwebhookservice.conf
-
+tests/
+.pytest_cache/
