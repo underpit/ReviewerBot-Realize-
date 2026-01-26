@@ -16,3 +16,5 @@ bot_config.json
 .pytest_cache/
 dist/
 build/
+ipuerwebhookservice.conf
+reviewbot.conf

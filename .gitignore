@@ -7,3 +7,9 @@ Dockerfile
 .DS_Store
 .vscode
 launch.json
+.dockerignore
+.git
+.gitignore
+reviewbot.conf
+ipuerwebhookservice.conf
+
