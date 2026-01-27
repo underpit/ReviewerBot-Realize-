@@ -2,8 +2,6 @@ __pycache__/
 *.py[cod]
 *.log
 *.db
-.env
-.env.*
 .git
 .gitignore
 .idea/
@@ -11,8 +9,6 @@ __pycache__/
 .venv/
 venv/
 uploads/
-reviews.db
-bot_config.json
 .pytest_cache/
 dist/
 build/
