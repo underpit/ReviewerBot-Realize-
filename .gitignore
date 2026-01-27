@@ -7,3 +7,6 @@ Dockerfile
 .DS_Store
 .vscode
 launch.json
+bot_config.json
+uploads/
+reviews.db

@@ -631,9 +631,9 @@
       <!-- Text -->
       <label for="freeText">Отлично! А теперь напишите пару строк в произвольной форме</label>
       <textarea id="freeText" placeholder="Введите ваш комментарию сюда"></textarea>
-      <div class="small" id="textCounter">0 / 10000</div>
+      <div class="small" id="textCounter">0 / 4096</div>
       <div class="errText" id="errText">Напишите хотя бы пару слов (минимум 3 символа).</div>
-      <div class="errText" id="errTextLimit">Превышен лимит: максимум 10 000 символов.</div>
+      <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов.</div>
 
       <div style="height:12px"></div>
 
@@ -748,7 +748,7 @@
   const errText = document.getElementById('errText');
   const textCounter = document.getElementById('textCounter');
   const errTextLimit = document.getElementById('errTextLimit');
-  const MAX_TEXT_LEN = 10000;
+  const MAX_TEXT_LEN = 4096;
 
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
