@@ -620,11 +620,16 @@ async def serve_promo(_: web.Request) -> web.Response:
         return web.json_response({"error": "promo.json invalid"}, status=500)
 
 
+async def healthcheck(_: web.Request) -> web.Response:
+    return web.json_response({"ok": True})
+
+
 def build_web_app(bot: telegram.Bot) -> web.Application:
     app = web.Application()
     app["bot"] = bot
     app.router.add_get("/", serve_index)
     app.router.add_get("/webapp", serve_index)
+    app.router.add_get("/health", healthcheck)
     app.router.add_get("/promo.json", serve_promo)
     app.router.add_post("/api/review", api_create_review)
     app.router.add_get("/api/reviews", api_get_reviews)

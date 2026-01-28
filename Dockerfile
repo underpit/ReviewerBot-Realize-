@@ -1,31 +1,24 @@
-# Base image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    WEBAPP_HOST=0.0.0.0 \
-    WEBAPP_PORT=8080 \
-    RB_REVIEWS_DB=/app/data/reviews.db
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    WEBAPP_PORT=8080
+
+RUN addgroup --system app && adduser --system --ingroup app app
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
 COPY . .
 
-# Runtime dirs for SQLite DB and uploads; drop privileges
-RUN set -eux; \
-    mkdir -p /app/data /app/uploads; \
-    adduser --disabled-password --gecos "" appuser; \
-    chown -R appuser:appuser /app
-
-USER appuser
+RUN mkdir -p /app/data /app/uploads && chown -R app:app /app
 
 VOLUME ["/app/data", "/app/uploads"]
 
-# Expose webapp port (bot still uses long polling)
+USER app
+
 EXPOSE 8080
 
-CMD ["python3", "main.py"]
+CMD ["python", "main.py"]
