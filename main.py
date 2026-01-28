@@ -716,6 +716,10 @@ async def serve_promo(_: web.Request) -> web.Response:
         return web.json_response({"error": "promo.json invalid"}, status=500)
 
 
+async def healthcheck(_: web.Request) -> web.Response:
+    return web.json_response({"ok": True})
+
+
 async def telegram_webhook(request: web.Request) -> web.Response:
     if WEBHOOK_SECRET:
         header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
@@ -754,6 +758,7 @@ def build_web_app(bot: telegram.Bot, application: Application) -> web.Applicatio
     app.router.add_get("/webapp", serve_index)
     app.router.add_get("/debug", serve_index)
     app.router.add_get("/debug/", serve_index)
+    app.router.add_get("/health", healthcheck)
     app.router.add_get("/debug/promo.json", serve_promo)
     app.router.add_post(WEBHOOK_PATH, telegram_webhook)
     app.router.add_post("/api/review", api_create_review)
