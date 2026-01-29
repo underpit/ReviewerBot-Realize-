@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Отзывы — Mini App</title>
-  <script src="https://www.ipuerwebhookservice.ru/api-debug/"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js?v=1"></script>
   <style>
     :root{
       --bg:#0b0f14;
@@ -136,14 +136,28 @@
       letter-spacing: .02em;
       text-transform: uppercase;
       font-weight: 800;
-      display:flex;
-      align-items:center;
-      gap:6px;
+      display:inline-block;
     }
     .required-star{
       color: var(--bad);
-      font-size: 11px;
+      display:inline;
+      vertical-align: super;
+      margin-left: 6px;
+      font-size: 0.9em;
       line-height: 1;
+    }
+    .tile.disabled{
+      opacity: .45;
+      filter: saturate(.4);
+      pointer-events: none;
+    }
+    .debug-panel{
+      margin-top: 8px;
+      padding: 6px 8px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted);
     }
     input[type="text"], textarea{
       width:100%;
@@ -536,6 +550,7 @@
     </div>
     <div class="badge" id="envBadge">Web</div>
   </div>
+  <div class="debug-panel hidden" id="tgDebugPanel"></div>
 
   <!-- HOME -->
   <section class="grid" id="page-home">
@@ -676,15 +691,10 @@
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
         <span class="pill">Debug</span>
-        <button class="btn secondary sm" id="debugRefreshPayload" type="button">Обновить payload</button>
       </div>
       <div class="row" style="gap:10px;">
         <button class="btn sm" id="debugPreviewBtn" type="button">Preview в backend</button>
-        <button class="btn secondary sm" id="debugCopyPayload" type="button">Скопировать payload</button>
       </div>
-      <div style="height:10px"></div>
-      <div class="small">Payload</div>
-      <pre class="debugBox" id="debugPayloadBox"></pre>
       <div style="height:10px"></div>
       <div class="small">Ответ backend</div>
       <pre class="debugBox" id="debugResponseBox"></pre>
@@ -734,7 +744,9 @@
   const isTelegram = Boolean(tg?.initData || tg?.initDataUnsafe?.user);
 
   // ---------- DOM
-  const API_BASE = window.__API_BASE || '';
+  // const API_BASE = window.__API_BASE || '';
+  const API_BASE = '/api-debug';
+
   const envBadge = document.getElementById('envBadge');
   const title = document.getElementById('title');
   const subtitle = document.getElementById('subtitle');
@@ -758,6 +770,7 @@
   const customNameBlock = document.getElementById('customNameBlock');
   const customName = document.getElementById('customName');
   const tgNameHint = document.getElementById('tgNameHint');
+  const tgNameTile = nameModeGrid.querySelector('[data-name-mode="tg"]');
 
   const errName = document.getElementById('errName');
   const errCategory = document.getElementById('errCategory');
@@ -813,12 +826,11 @@
   const historyFooter = document.getElementById('historyFooter');
 
   const debugCard = document.getElementById('debugCard');
-  const debugRefreshPayload = document.getElementById('debugRefreshPayload');
+  const tgDebugPanel = document.getElementById('tgDebugPanel');
   const debugPreviewBtn = document.getElementById('debugPreviewBtn');
-  const debugCopyPayload = document.getElementById('debugCopyPayload');
-  const debugPayloadBox = document.getElementById('debugPayloadBox');
   const debugResponseBox = document.getElementById('debugResponseBox');
   const DEBUG_MODE = location.search.includes('debug=1') || location.pathname.includes('/debug');
+  const TG_DEBUG = DEBUG_MODE || location.search.includes('tgdebug=1');
 
   // ---------- Data
   const CATEGORIES = { tea:"Чай", service:"Сервис", delivery:"Доставка" };
@@ -921,6 +933,20 @@
     mq?.addEventListener?.('change', (e) => applyScheme(e.matches ? 'light' : 'dark'));
   }
 
+  if (!tgUser && tgNameTile){
+    tgNameTile.classList.add('disabled');
+    tgNameTile.setAttribute('aria-disabled', 'true');
+    tgNameHint.textContent = 'Откройте из Telegram';
+  }
+
+  if (TG_DEBUG && tgDebugPanel){
+    const who = tgUser
+      ? `${tgUser.username ? '@' + tgUser.username : (tgUser.first_name || '—')} (id:${tgUser.id})`
+      : 'no';
+    tgDebugPanel.textContent = `Telegram user detected: ${tgUser ? 'yes' : 'no'} • ${who}`;
+    tgDebugPanel.classList.remove('hidden');
+  }
+
   // ---------- Build stars
   const STAR_SVG = `
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -951,6 +977,7 @@
   nameModeGrid.addEventListener('click', (e) => {
     const tile = e.target.closest('.tile');
     if (!tile) return;
+    if (tile.classList.contains('disabled')) return;
     setNameMode(tile.dataset.nameMode);
   });
 
@@ -1028,18 +1055,12 @@
     };
   }
 
-  function updateDebugPayloadBox(payload){
-    if (!debugPayloadBox) return;
-    debugPayloadBox.textContent = JSON.stringify(payload, null, 2);
-  }
-
   async function debugPreview(){
     if (!debugResponseBox) return;
     const payload = buildPayload();
-    updateDebugPayloadBox(payload);
     debugResponseBox.textContent = 'Запрос...';
     try{
-      const res = await fetch(`${API_BASE}/api-debug/preview`, {
+      const res = await fetch(`${API_BASE}/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1053,36 +1074,7 @@
     }
   }
 
-  async function copyDebugPayload(){
-    const payload = buildPayload();
-    const value = JSON.stringify(payload, null, 2);
-    updateDebugPayloadBox(payload);
-    try{
-      if (navigator.clipboard && window.isSecureContext){
-        await navigator.clipboard.writeText(value);
-        toast('Payload скопирован ✅', 'ok');
-        return;
-      }
-    }catch(e){}
-    try{
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      ta.setAttribute('readonly','');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      toast(ok ? 'Payload скопирован ✅' : 'Не удалось копировать', ok ? 'ok' : 'bad');
-    }catch(e){
-      toast('Не удалось копировать', 'bad');
-    }
-  }
-
-  debugRefreshPayload?.addEventListener('click', () => updateDebugPayloadBox(buildPayload()));
   debugPreviewBtn?.addEventListener('click', debugPreview);
-  debugCopyPayload?.addEventListener('click', copyDebugPayload);
   function syncTextLimit(){
     const v = freeText.value || '';
     if (v.length > MAX_TEXT_LEN){
@@ -1437,7 +1429,7 @@
       fd.append('payload', JSON.stringify(payload));
       if (state.photoFile) fd.append('photo', state.photoFile, state.photoFile.name);
 
-      const res = await fetch(`${API_BASE}/api/review`, { method:'POST', body: fd });
+      const res = await fetch(`${API_BASE}/review`, { method:'POST', body: fd });
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1451,7 +1443,7 @@
     }catch(e){
       console.error(e);
       haptic('notification','error');
-      toast('Ошибка отправки. Проверь backend /api/review (multipart).', 'bad');
+      toast('Ошибка отправки. Проверь backend /api-debug/review (multipart).', 'bad');
     }finally{
       state.sending = false;
       syncFormUI();
@@ -1478,7 +1470,7 @@
       params.set('offset', String(history.offset));
       params.set('limit', String(history.limit));
 
-      const res = await fetch(`${API_BASE}/api/reviews?` + params.toString());
+      const res = await fetch(`${API_BASE}/reviews?` + params.toString());
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1498,7 +1490,7 @@
     }catch(e){
       console.error(e);
       historyHint.textContent = 'Не удалось загрузить отзывы.';
-      historyFooter.textContent = 'Проверь backend /api/reviews.';
+      historyFooter.textContent = 'Проверь backend /api-debug/review.';
       loadMoreBtn.disabled = true;
     }
   }
@@ -1507,7 +1499,7 @@
   async function loadPromo(){
     if (promoData) return promoData;
     try{
-      const res = await fetch(`${API_BASE}/promo.json`);
+      const res = await fetch(`/debug/promo.json`);
       if (!res.ok) return null;
       promoData = await res.json();
       return promoData;
