@@ -33,6 +33,11 @@ WEBAPP_HOST = os.environ.get("WEBAPP_HOST", "0.0.0.0")  # env: bind host
 WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8080"))  # env: bind port
 WEBAPP_URL = os.environ.get("WEBAPP_URL", f"http://{WEBAPP_HOST}:{WEBAPP_PORT}/debug")  # env: WebApp URL
 
+# API prefix for debug endpoints (default: /api-debug)
+API_PREFIX = (os.environ.get("API_PREFIX") or "/api-debug").strip()
+if API_PREFIX and not API_PREFIX.startswith("/"):
+    API_PREFIX = f"/{API_PREFIX}"
+API_PREFIX = API_PREFIX.rstrip("/")
 # env: optional bot name for logs
 BOT_NAME = (os.environ.get("BOT_NAME") or "").strip()
 # env: webhook path (e.g. /webhook/bot1)
@@ -490,61 +495,120 @@ def _format_channel_caption(review: dict) -> str:
     return _truncate_text(caption, TG_CAPTION_LIMIT)
 
 
-async def _send_to_channel(bot: telegram.Bot, review: dict) -> None:
-    async with CHANNEL_SEND_LOCK:
-        header_text, review_text, full_text, tags = _build_text_parts(review)
+async def send_review_to_channel(
+    bot: telegram.Bot,
+    channel_id: str,
+    *,
+    review: dict,
+    dry_run: bool = False,
+) -> dict:
+    """
+    Robust sender with logging:
+    - one message for non-tea or no photo
+    - photo + caption if <=1024
+    - photo + reply with review text if caption >1024
+    """
+    header_text, review_text, full_text, tags = _build_text_parts(review)
+    requires_photo = review.get("category") == "tea"
+    photo_path = review.get("photo_path")
 
-        # Rule A: if category is NOT tea or photo missing -> send ONE message only.
-        if review.get("category") != "tea" or not review.get("photo_path"):
-            single = _fit_full_text(header_text, review_text, tags, TG_MESSAGE_LIMIT)
-            await bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=_escape_html(single),
-                parse_mode="HTML",
-            )
-            return
+    caption_raw = full_text
+    caption_escaped = _escape_html(caption_raw)
+    caption_len = len(caption_escaped)
+    full_len = len(_escape_html(full_text))
+    review_len = len(_escape_html(review_text))
 
-        # Rule C: tea + photo + text fits caption -> send one photo with full caption.
-        if len(full_text) <= TG_CAPTION_LIMIT:
-            with open(review["photo_path"], "rb") as photo_file:
-                await bot.send_photo(
-                    chat_id=CHANNEL_ID,
+    logger.info(
+        "send_review.start",
+        extra={
+            "category": review.get("category"),
+            "requires_photo": requires_photo,
+            "channel_id": channel_id,
+            "caption_len": caption_len,
+            "full_text_len": full_len,
+            "review_text_len": review_len,
+            "has_photo": bool(photo_path),
+            "photo_path": photo_path,
+            "dry_run": dry_run,
+        },
+    )
+
+    if requires_photo and not photo_path:
+        logger.warning("send_review.missing_photo", extra={"channel_id": channel_id})
+        return {"ok": False, "error": "Фото обязательно для категории tea"}
+
+    try:
+        async with CHANNEL_SEND_LOCK:
+            # Rule A: non-tea or no photo -> single sendMessage only.
+            if not requires_photo or not photo_path:
+                single = _fit_full_text(header_text, review_text, tags, TG_MESSAGE_LIMIT)
+                if dry_run:
+                    return {"ok": True, "message_ids": ["dry_run_single"]}
+                msg = await bot.send_message(
+                    chat_id=channel_id,
+                    text=_escape_html(single),
+                    parse_mode="HTML",
+                )
+                logger.info("send_review.ok.single", extra={"message_id": msg.message_id})
+                return {"ok": True, "message_ids": [msg.message_id]}
+
+            # Rule C: tea + photo + text fits caption -> send one photo with full caption.
+            if len(caption_escaped) <= TG_CAPTION_LIMIT:
+                if dry_run:
+                    return {"ok": True, "message_ids": ["dry_run_photo"]}
+                with open(photo_path, "rb") as photo_file:
+                    msg = await bot.send_photo(
+                        chat_id=channel_id,
+                        photo=photo_file,
+                        caption=caption_escaped,
+                        parse_mode="HTML",
+                    )
+                logger.info("send_review.ok.photo", extra={"message_id": msg.message_id})
+                return {"ok": True, "message_ids": [msg.message_id]}
+
+            # Rule B: tea + photo + caption > 1024 -> photo with short header, review as reply.
+            caption_short = _format_channel_caption(review)
+            caption_short_escaped = _escape_html(caption_short) if caption_short else None
+            if dry_run:
+                return {"ok": True, "message_ids": ["dry_run_photo", "dry_run_reply"]}
+            with open(photo_path, "rb") as photo_file:
+                photo_msg = await bot.send_photo(
+                    chat_id=channel_id,
                     photo=photo_file,
-                    caption=_escape_html(full_text),
-                    parse_mode="HTML",
+                    caption=caption_short_escaped if caption_short_escaped else None,
+                    parse_mode="HTML" if caption_short_escaped else None,
                 )
-            return
 
-        # Rule B: tea + photo + caption > 1024 -> photo with short header, review as reply.
-        caption_short = _format_channel_caption(review)
-        with open(review["photo_path"], "rb") as photo_file:
-            photo_msg = await bot.send_photo(
-                chat_id=CHANNEL_ID,
-                photo=photo_file,
-                caption=_escape_html(caption_short) if caption_short else None,
-                parse_mode="HTML" if caption_short else None,
+            if review_text:
+                reply_text = _truncate_text(f"Отзыв:\n{review_text}", TG_MESSAGE_LIMIT)
+                try:
+                    # Reply keeps visual width aligned with the photo message.
+                    msg = await bot.send_message(
+                        chat_id=channel_id,
+                        text=_escape_html(reply_text),
+                        parse_mode="HTML",
+                        reply_to_message_id=photo_msg.message_id,
+                        allow_sending_without_reply=True,
+                    )
+                except Exception:
+                    # If replies are not supported, send after with separator.
+                    fallback = f"———\n{reply_text}\n———"
+                    msg = await bot.send_message(
+                        chat_id=channel_id,
+                        text=_escape_html(fallback),
+                        parse_mode="HTML",
+                    )
+            else:
+                msg = photo_msg
+
+            logger.info(
+                "send_review.ok.photo_reply",
+                extra={"photo_message_id": photo_msg.message_id, "reply_message_id": msg.message_id},
             )
-
-        if review_text:
-            reply_text = _truncate_text(f"Отзыв:\n{review_text}", TG_MESSAGE_LIMIT)
-            try:
-                # Reply keeps visual width aligned with the photo message.
-                await bot.send_message(
-                    chat_id=CHANNEL_ID,
-                    text=_escape_html(reply_text),
-                    parse_mode="HTML",
-                    reply_to_message_id=photo_msg.message_id,
-                    allow_sending_without_reply=True,
-                )
-            except Exception:
-                # If replies are not supported (e.g., channel without discussion),
-                # send immediately after with a visual separator.
-                fallback = f"———\n{reply_text}\n———"
-                await bot.send_message(
-                    chat_id=CHANNEL_ID,
-                    text=_escape_html(fallback),
-                    parse_mode="HTML",
-                )
+            return {"ok": True, "message_ids": [photo_msg.message_id, msg.message_id]}
+    except Exception as e:
+        logger.exception("send_review.failed", extra={"error": str(e)})
+        return {"ok": False, "error": "Не удалось отправить в Telegram"}
 
 
 async def api_create_review(request: web.Request) -> web.Response:
@@ -588,11 +652,12 @@ async def api_create_review(request: web.Request) -> web.Response:
     )
 
     bot: telegram.Bot = request.app["bot"]
-    try:
-        await _send_to_channel(bot, review)
-    except Exception as e:
-        logger.error("Send to channel failed for web review %s: %s", review_id, e)
-        return web.json_response({"ok": False, "error": "Сохранено, но не отправлено в канал"}, status=500)
+    result = await send_review_to_channel(bot, CHANNEL_ID, review=review)
+    if not result.get("ok"):
+        return web.json_response(
+            {"ok": False, "error": result.get("error", "Сохранено, но не отправлено в канал")},
+            status=500,
+        )
 
     return web.json_response({"ok": True, "id": review_id}, status=201)
 
@@ -797,9 +862,9 @@ def build_web_app(bot: telegram.Bot, application: Application) -> web.Applicatio
     app.router.add_post(WEBHOOK_PATH, telegram_webhook)
     app.router.add_post("/api/review", api_create_review)
     app.router.add_get("/api/reviews", api_get_reviews)
-    app.router.add_post("/api-debug/review", api_create_review)
-    app.router.add_get("/api-debug/review", api_get_reviews)
-    app.router.add_post("/api-debug/preview", api_debug_preview)
+    app.router.add_post(f"{API_PREFIX}/review", api_create_review)
+    app.router.add_get(f"{API_PREFIX}/review", api_get_reviews)
+    app.router.add_post(f"{API_PREFIX}/preview", api_debug_preview)
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
     return app
 
@@ -868,6 +933,8 @@ async def async_main() -> None:
         await application.initialize()
         await application.start()
         await configure_webhook(application.bot)
+        if os.environ.get("RUN_SEND_TESTS") == "1":
+            await _run_send_tests(application.bot)
 
         # держим процесс живым
         await stop_event.wait()
@@ -884,6 +951,78 @@ async def async_main() -> None:
             pass
 
         await runner.cleanup()
+
+
+async def _run_send_tests(bot: telegram.Bot) -> None:
+    """Dry-run tests for send logic (no Telegram calls)."""
+    logger.info("send_tests.start")
+    tests = [
+        {
+            "name": "tea_short_caption",
+            "review": {
+                "category": "tea",
+                "name_mode": "tg",
+                "tg_username": "tester",
+                "display_name": "Tester",
+                "tea_title": "Test Tea",
+                "rating": 5,
+                "liked_most": "Вкус",
+                "disliked_most": "Послевкусие",
+                "text": "Короткий отзыв",
+                "photo_path": "/tmp/fake.jpg",
+            },
+        },
+        {
+            "name": "tea_long_caption",
+            "review": {
+                "category": "tea",
+                "name_mode": "tg",
+                "tg_username": "tester",
+                "display_name": "Tester",
+                "tea_title": "Test Tea",
+                "rating": 5,
+                "liked_most": "Вкус",
+                "disliked_most": "Послевкусие",
+                "text": "Длинный " * 300,
+                "photo_path": "/tmp/fake.jpg",
+            },
+        },
+        {
+            "name": "service_no_photo",
+            "review": {
+                "category": "service",
+                "name_mode": "custom",
+                "display_name": "User",
+                "rating": 4,
+                "liked_most": "Скорость",
+                "text": "Сервис норм",
+                "photo_path": None,
+            },
+        },
+        {
+            "name": "tea_missing_photo",
+            "review": {
+                "category": "tea",
+                "name_mode": "custom",
+                "display_name": "User",
+                "tea_title": "Test Tea",
+                "rating": 4,
+                "liked_most": "Вкус",
+                "text": "Нет фото",
+                "photo_path": None,
+            },
+        },
+    ]
+
+    for t in tests:
+        res = await send_review_to_channel(
+            bot,
+            CHANNEL_ID,
+            review=t["review"],
+            dry_run=True,
+        )
+        logger.info("send_tests.case", extra={"case": t["name"], "result": res})
+    logger.info("send_tests.done")
 
 
 if __name__ == "__main__":

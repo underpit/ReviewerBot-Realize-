@@ -744,8 +744,8 @@
   const isTelegram = Boolean(tg?.initData || tg?.initDataUnsafe?.user);
 
   // ---------- DOM
-  // const API_BASE = window.__API_BASE || '';
-  const API_BASE = '/api-debug';
+  const basePrefix = location.pathname.startsWith('/debug') ? '/debug' : '';
+  const API_BASE = location.pathname.startsWith('/debug') ? '/api-debug' : '/api';
 
   const envBadge = document.getElementById('envBadge');
   const title = document.getElementById('title');
@@ -1470,7 +1470,7 @@
       params.set('offset', String(history.offset));
       params.set('limit', String(history.limit));
 
-      const res = await fetch(`${API_BASE}/reviews?` + params.toString());
+      const res = await fetch(`${API_BASE}/review?` + params.toString());
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1499,7 +1499,7 @@
   async function loadPromo(){
     if (promoData) return promoData;
     try{
-      const res = await fetch(`/debug/promo.json`);
+      const res = await fetch(`${basePrefix}/promo.json`);
       if (!res.ok) return null;
       promoData = await res.json();
       return promoData;
