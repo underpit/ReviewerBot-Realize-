@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 import logging
 import os
@@ -31,6 +32,10 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 WEBAPP_HOST = os.environ.get("WEBAPP_HOST", "0.0.0.0")
 WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8081"))
 WEBAPP_URL = os.environ.get("WEBAPP_URL", f"http://{WEBAPP_HOST}:{WEBAPP_PORT}/webapp")
+API_PREFIX = (os.environ.get("API_PREFIX") or "/api").strip()
+if API_PREFIX and not API_PREFIX.startswith("/"):
+    API_PREFIX = f"/{API_PREFIX}"
+API_PREFIX = API_PREFIX.rstrip("/")
 
 ALLOWED_CATEGORIES = {"tea", "service", "delivery"}
 ALLOWED_NAME_MODES = {"tg", "anon", "custom"}
@@ -378,88 +383,149 @@ def _split_text(text: str, limit: int) -> list[str]:
     return parts
 
 
+def _escape_html(text: str) -> str:
+    return html.escape(text or "", quote=False)
+
+
+def _truncate_text(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    if limit <= 0:
+        return ""
+    return text[: max(0, limit - 1)] + "…"
+
+
+def _build_text_parts(review: dict) -> tuple[str, str, str, str]:
+    """Return header, review_text, full_text, tags (raw, no HTML)."""
+    category_title = CATEGORY_TITLES.get(review["category"], review["category"])
+    stars = "⭐" * int(review.get("rating") or 0)
+    liked = review.get("liked_most") or "Ничего"
+
+    lines = []
+    name_mode = review.get("name_mode")
+    if name_mode != "anon":
+        published = None
+        if name_mode == "tg" and review.get("tg_username"):
+            published = f"@{review['tg_username']}"
+        elif review.get("display_name"):
+            published = review["display_name"]
+        if published:
+            lines.append(f"Опубликовано: {published}")
+
+    lines.append(f"Категория: {category_title}")
+    if review["category"] == "tea" and review.get("tea_title"):
+        lines.append(f"Чай: {review['tea_title']}")
+
+    lines.append(f"Рейтинг: {stars or '—'}")
+    lines.append(f"Лучшие моменты: {liked}")
+
+    header_text = "\n".join(lines).strip()
+    tags = f"#отзыв #отзыв_{category_title.lower()}"
+    review_text = (review.get("text") or "").strip()
+
+    full_text = header_text or ""
+    if review_text:
+        full_text = f"{full_text}\n\nОтзыв:\n{review_text}" if full_text else f"Отзыв:\n{review_text}"
+    if tags:
+        full_text = f"{full_text}\n\n{tags}" if full_text else tags
+
+    return header_text, review_text, full_text, tags
+
+
+def _fit_full_text(header_text: str, review_text: str, tags: str, limit: int) -> str:
+    """Ensure message fits Telegram limit while keeping structure."""
+    base = header_text or ""
+    if review_text:
+        base = f"{base}\n\nОтзыв:\n{review_text}" if base else f"Отзыв:\n{review_text}"
+    suffix = f"\n\n{tags}" if tags else ""
+    full = f"{base}{suffix}"
+    if len(full) <= limit:
+        return full
+
+    if not review_text:
+        return _truncate_text(full, limit)
+
+    prefix = f"{header_text}\n\nОтзыв:\n" if header_text else "Отзыв:\n"
+    available = limit - len(prefix) - len(suffix)
+    if available <= 0:
+        trimmed_header = _truncate_text(header_text, max(0, limit - len(suffix)))
+        return f"{trimmed_header}{suffix}".strip()
+
+    trimmed_review = _truncate_text(review_text, available)
+    return f"{prefix}{trimmed_review}{suffix}".strip()
+
+
+def _format_channel_summary(review: dict) -> str:
+    header_text, _, _, tags = _build_text_parts(review)
+    summary = header_text
+    if tags:
+        summary = f"{summary}\n\n{tags}" if summary else tags
+    return summary
+
+
 def _format_channel_caption(review: dict) -> str:
-    """Короткий caption (<=1024), без простыни текста."""
-    category_title = CATEGORY_TITLES.get(review["category"], review["category"])
-    stars = "⭐" * int(review.get("rating") or 0)
-    liked = review.get("liked_most") or "Ничего"
-
-    lines = ["📝 Новый отзыв", ""]
-
-    name_mode = review.get("name_mode")
-    if name_mode != "anon":
-        published = None
-        if name_mode == "tg" and review.get("tg_username"):
-            published = f"@{review['tg_username']}"
-        elif review.get("display_name"):
-            published = review["display_name"]
-        if published:
-            lines.append(f"Опубликовано: {published}")
-
-    lines.append(f"Категория: {category_title}")
-    if review["category"] == "tea" and review.get("tea_title"):
-        lines.append(f"Чай: {review['tea_title']}")
-
-    lines.append(f"Рейтинг: {stars or '—'}")
-    lines.append(f"Лучшие моменты: {liked}")
-    lines.append("")
-    lines.append(f"#отзыв #отзыв_{category_title.lower()}")
-
-    caption = "\n".join(lines)
-    return caption[:TG_CAPTION_LIMIT]
-
-
-def _format_channel_message(review: dict) -> str:
-    category_title = CATEGORY_TITLES.get(review["category"], review["category"])
-    stars = "⭐" * int(review.get("rating") or 0)
-    liked = review.get("liked_most") or "Ничего"
-
-    lines = ["📝 Новый отзыв", ""]
-
-    name_mode = review.get("name_mode")
-    if name_mode != "anon":
-        published = None
-        if name_mode == "tg" and review.get("tg_username"):
-            published = f"@{review['tg_username']}"
-        elif review.get("display_name"):
-            published = review["display_name"]
-        if published:
-            lines.append(f"Опубликовано: {published}")
-
-    lines.append(f"Категория: {category_title}")
-
-    if review["category"] == "tea" and review.get("tea_title"):
-        lines.append(f"Чай: {review['tea_title']}")
-
-    lines.append(f"Рейтинг: {stars or '—'}")
-    lines.append(f"Лучшие моменты: {liked}")
-    lines.append(f"Отзыв: {review['text']}")
-    lines.append("")
-
-    tag_category = category_title.lower()
-    lines.append(f"#отзыв #отзыв_{tag_category}")
-
-    return "\n".join(lines)
+    """Короткий caption (<=1024)."""
+    header_text, _, _, tags = _build_text_parts(review)
+    caption = header_text
+    if tags:
+        caption = f"{caption}\n\n{tags}" if caption else tags
+    return _truncate_text(caption, TG_CAPTION_LIMIT)
 
 
 async def _send_to_channel(bot: telegram.Bot, review: dict) -> None:
-    full_message = _format_channel_message(review)  # как раньше (с полным текстом)
-    caption = _format_channel_caption(review)
+    header_text, review_text, full_text, tags = _build_text_parts(review)
 
-    if review.get("photo_path"):
+    # Rule A: if category is NOT tea or photo missing -> send ONE message only.
+    if review.get("category") != "tea" or not review.get("photo_path"):
+        single = _fit_full_text(header_text, review_text, tags, TG_MESSAGE_LIMIT)
+        await bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=_escape_html(single),
+            parse_mode="HTML",
+        )
+        return
+
+    # Rule C: tea + photo + text fits caption -> send one photo with full caption.
+    if len(full_text) <= TG_CAPTION_LIMIT:
         with open(review["photo_path"], "rb") as photo_file:
-            await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=caption)
+            await bot.send_photo(
+                chat_id=CHANNEL_ID,
+                photo=photo_file,
+                caption=_escape_html(full_text),
+                parse_mode="HTML",
+            )
+        return
 
-        # полный текст — отдельным сообщением (может быть длинным)
-        text = full_message
-        for chunk in _split_text(text, TG_MESSAGE_LIMIT):
-            if chunk.strip():
-                await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
-    else:
-        # без фото можно оставить как было, но тоже лучше резать на 4096
-        for chunk in _split_text(full_message, TG_MESSAGE_LIMIT):
-            if chunk.strip():
-                await bot.send_message(chat_id=CHANNEL_ID, text=chunk)  
+    # Rule B: tea + photo + caption > 1024 -> photo with short header, review as reply.
+    caption_short = _format_channel_caption(review)
+    with open(review["photo_path"], "rb") as photo_file:
+        photo_msg = await bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=photo_file,
+            caption=_escape_html(caption_short) if caption_short else None,
+            parse_mode="HTML" if caption_short else None,
+        )
+
+    if review_text:
+        reply_text = _truncate_text(f"Отзыв:\n{review_text}", TG_MESSAGE_LIMIT)
+        try:
+            # Reply keeps visual width aligned with the photo message.
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=_escape_html(reply_text),
+                parse_mode="HTML",
+                reply_to_message_id=photo_msg.message_id,
+                allow_sending_without_reply=True,
+            )
+        except Exception:
+            # If replies are not supported (e.g., channel without discussion),
+            # send immediately after with a visual separator.
+            fallback = f"———\n{reply_text}\n———"
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=_escape_html(fallback),
+                parse_mode="HTML",
+            )
 
 
 async def api_create_review(request: web.Request) -> web.Response:
@@ -631,8 +697,8 @@ def build_web_app(bot: telegram.Bot) -> web.Application:
     app.router.add_get("/webapp", serve_index)
     app.router.add_get("/health", healthcheck)
     app.router.add_get("/promo.json", serve_promo)
-    app.router.add_post("/api/review", api_create_review)
-    app.router.add_get("/api/reviews", api_get_reviews)
+    app.router.add_post(f"{API_PREFIX}/review", api_create_review)
+    app.router.add_get(f"{API_PREFIX}/reviews", api_get_reviews)
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
     return app
 

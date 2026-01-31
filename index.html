@@ -159,6 +159,11 @@
     .tile.on{ border-color: rgba(78,161,255,.45); background: rgba(78,161,255,.14); }
     .tile strong{ font-size:14px; }
     .tile span{ font-size:12px; color: var(--muted); line-height:1.2; }
+    .tile.disabled{
+      opacity: .45;
+      filter: saturate(.4);
+      pointer-events: none;
+    }
 
     /* stars (full width) */
     #ratingRow{
@@ -287,6 +292,7 @@
       padding:16px;
       z-index:50;
     }
+    #consentModal{ padding: 14px; }
     .modalCard{
       width:100%;
       max-width:380px;
@@ -310,6 +316,44 @@
       border-radius: 12px;
       letter-spacing: 0.08em;
       text-align:center;
+    }
+    .consentModalCard{
+      width: 100%;
+      max-width: calc(860px - 28px);
+      height: 65vh;
+      max-height: 65vh;
+      background:#0c1014;
+      border: 1px solid var(--border);
+      border-radius:16px;
+      padding:18px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      position:relative;
+    }
+    .consentBody{
+      overflow:auto;
+      padding-right:4px;
+      font-size:14px;
+      line-height:1.4;
+      color: rgba(255,255,255,.82);
+    }
+    .consentBody p{ margin: 0 0 10px; }
+    .consentBody ul{ margin: 0 0 10px 18px; padding:0; }
+    .modalClose{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:32px;
+      height:32px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      cursor:pointer;
+      font-size:16px;
+      line-height:1;
     }
 
     /* history list */
@@ -353,6 +397,52 @@
       display:none;
     }
     .errText.show{ display:block; }
+    .consentRow{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin: 0 0 20px;
+    }
+    .consentLabel{
+      display:flex;
+      align-items:flex-start;
+      flex-wrap:wrap;
+      gap:6px;
+      font-size:12px;
+    }
+    .consentLabel input[type="checkbox"]{
+      margin-top: 1px;
+      width: 1.35em;
+      height: 1.35em;
+      accent-color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .consentText{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .consentLink{
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      display: inline;
+    }
+    .consentLink:active{ opacity:.75; }
+    .required-star{
+      color: var(--bad);
+      display:inline;
+      vertical-align: super;
+      margin-left: 6px;
+      font-size: 0.9em;
+      line-height: 1;
+    }
+    .no-scroll{ overflow:hidden; }
 
     /* shake */
     @keyframes shake {
@@ -426,6 +516,12 @@
       box-shadow: 0 12px 40px rgba(0,0,0,.20);
     }
     body[data-scheme="light"] .modalText{ color: rgba(0,0,0,.75); }
+    body[data-scheme="light"] .consentModalCard{
+      background: rgba(255,255,255,.98);
+      border-color: rgba(0,0,0,.14);
+      box-shadow: 0 12px 40px rgba(0,0,0,.20);
+    }
+    body[data-scheme="light"] .consentBody{ color: rgba(0,0,0,.78); }
     body[data-scheme="light"] .status.ok,
     body[data-scheme="light"] .status.bad,
     body[data-scheme="light"] .errText{ color: rgba(0,0,0,.90); }
@@ -499,7 +595,7 @@
       <h1 id="title">Отзывы</h1>
       <p id="subtitle">Выберите действие</p>
     </div>
-    <div class="badge" id="envBadge">Web</div>
+    <div class="badge" id="envBadge">Вне Telegram</div>
   </div>
 
   <!-- HOME -->
@@ -635,7 +731,17 @@
       <div class="errText" id="errText">Напишите хотя бы пару слов (минимум 3 символа).</div>
       <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов.</div>
 
-      <div style="height:12px"></div>
+      <div class="consentRow" id="consentRow">
+        <div class="consentLabel">
+          <input type="checkbox" id="consentCheckbox" />
+          <div class="consentText">
+            Даю согласие на обработку
+            <button class="consentLink" id="consentOpen" type="button">персональной информации</button>
+            <span class="required-star">*</span>
+          </div>
+        </div>
+        <div class="errText" id="errConsent">Нужно дать согласие на обработку персональной информации</div>
+      </div>
 
       <button class="btn" id="submitBtn">Отправить</button>
       <div style="height:10px"></div>
@@ -684,6 +790,30 @@
   </div>
 </div>
 
+<div class="modal hidden" id="consentModal" aria-hidden="true">
+  <div class="consentModalCard" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+    <button class="modalClose" id="consentClose" type="button" aria-label="Закрыть">×</button>
+    <div class="modalTitle" id="consentTitle">Согласие на обработку персональных данных</div>
+    <div class="consentBody">
+      <p>Я даю согласие на обработку персональной информации, предоставляемой в рамках отправки отзыва в Mini App.</p>
+      <p>Состав обрабатываемых данных:</p>
+      <ul>
+        <li>Telegram username/имя (если выбран режим “Имя из Telegram”).</li>
+        <li>Текст отзыва.</li>
+        <li>Оценка (звезды/шкала).</li>
+        <li>Категория отзыва (чай/доставка/сервис).</li>
+        <li>Загруженные фото (если приложены).</li>
+        <li>Технические данные: дата и время отправки, идентификатор пользователя/чата (если используется в системе).</li>
+      </ul>
+      <p>Цели обработки: публикация отзыва в канале/группе, улучшение сервиса, связь с пользователем при необходимости.</p>
+      <p>Срок хранения: до достижения целей обработки или до отзыва согласия.</p>
+      <p>Отзыв согласия: email@example.com или @telegram_contact (замените на актуальные контакты).</p>
+      <p>Отправляя отзыв, пользователь подтверждает своё согласие на обработку указанных данных.</p>
+    </div>
+    <button class="btn" id="consentCloseBtn" type="button">Закрыть</button>
+  </div>
+</div>
+
 <script>
 (() => {
   const tg = window.Telegram?.WebApp ?? null;
@@ -713,6 +843,7 @@
   const customNameBlock = document.getElementById('customNameBlock');
   const customName = document.getElementById('customName');
   const tgNameHint = document.getElementById('tgNameHint');
+  const tgNameTile = nameModeGrid.querySelector('[data-name-mode="tg"]');
 
   const errName = document.getElementById('errName');
   const errCategory = document.getElementById('errCategory');
@@ -752,6 +883,13 @@
 
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
+  const consentRow = document.getElementById('consentRow');
+  const consentCheckbox = document.getElementById('consentCheckbox');
+  const consentOpen = document.getElementById('consentOpen');
+  const consentModal = document.getElementById('consentModal');
+  const consentClose = document.getElementById('consentClose');
+  const consentCloseBtn = document.getElementById('consentCloseBtn');
+  const errConsent = document.getElementById('errConsent');
   const statusBox = document.getElementById('statusBox');
   const successModal = document.getElementById('successModal');
   const promoTextEl = document.getElementById('promoText');
@@ -768,6 +906,10 @@
   const historyFooter = document.getElementById('historyFooter');
 
   // ---------- Data
+  const basePrefix = location.pathname.startsWith('/debug') ? '/debug' : '';
+  const apiPrefix = location.pathname.startsWith('/debug') ? '/api-debug' : '/api';
+  const historyPath = apiPrefix === '/api-debug' ? '/review' : '/reviews';
+  const DEBUG_MODE = location.search.includes('debug=1') || location.pathname.includes('/debug');
   const CATEGORIES = { tea:"Чай", service:"Сервис", delivery:"Доставка" };
   const LIKED_OPTIONS = {
     tea: ["ВКУС","АРОМАТ","ОЩУЩЕНИЕ ОТ ЧАЯ","ВСË"],
@@ -850,11 +992,17 @@
       tg.BackButton.onClick(() => nav('home'));
     }catch(e){}
   } else {
-    envBadge.textContent = 'Browser';
+    envBadge.textContent = 'Вне Telegram';
     // Browser fallback: use system theme
     const mq = window.matchMedia?.('(prefers-color-scheme: light)');
     applyScheme(mq && mq.matches ? 'light' : 'dark');
     mq?.addEventListener?.('change', (e) => applyScheme(e.matches ? 'light' : 'dark'));
+  }
+
+  if (!tgUser && tgNameTile){
+    tgNameTile.classList.add('disabled');
+    tgNameTile.setAttribute('aria-disabled', 'true');
+    tgNameHint.textContent = 'Откройте из Telegram';
   }
 
   // ---------- Build stars
@@ -887,6 +1035,7 @@
   nameModeGrid.addEventListener('click', (e) => {
     const tile = e.target.closest('.tile');
     if (!tile) return;
+    if (tile.classList.contains('disabled')) return;
     setNameMode(tile.dataset.nameMode);
   });
 
@@ -923,6 +1072,19 @@
   });
   submitBtn.addEventListener('click', submitReview);
   resetBtn.addEventListener('click', () => resetForm(false));
+  consentOpen?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openConsentModal();
+  });
+  consentClose?.addEventListener('click', closeConsentModal);
+  consentCloseBtn?.addEventListener('click', closeConsentModal);
+  consentModal?.addEventListener('click', (e) => {
+    if (e.target === consentModal) closeConsentModal();
+  });
+  consentCheckbox?.addEventListener('change', () => {
+    clearRowError(consentRow, errConsent);
+    syncConsentDebug();
+  });
 
   reloadHistory.addEventListener('click', () => loadHistory(true));
   loadMoreBtn.addEventListener('click', () => loadHistory(false));
@@ -1184,6 +1346,9 @@
     if ((freeText.value || '').trim().length < 3){
       issues.push({ el: freeText, msgEl: errText, type:'field' });
     }
+    if (consentCheckbox && !consentCheckbox.checked){
+      issues.push({ el: consentRow, msgEl: errConsent, type:'row' });
+    }
 
     // apply errors
     issues.forEach((i, idx) => {
@@ -1205,7 +1370,8 @@
     const ratingOk = state.rating >= 1;
     const textLenOk = (freeText.value || '').length <= MAX_TEXT_LEN;
     const textOk = (freeText.value || '').trim().length >= 3;
-    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && textLenOk && !state.sending;
+    const consentOk = !consentCheckbox || !!consentCheckbox.checked;
+    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && textLenOk && consentOk && !state.sending;
   }
 
   function syncFormUI(){
@@ -1233,6 +1399,7 @@
     freeText.value = '';
     syncTextLimit();
     clearFieldError(freeText, errTextLimit);
+    if (consentCheckbox) consentCheckbox.checked = false;
 
     hideStatus();
     clearAllErrors();
@@ -1254,6 +1421,7 @@
     syncFormUI();
     toast('Отправляем отзыв…', '');
 
+    const consent = !!consentCheckbox?.checked;
     const payload = {
       type: 'review',
       createdAt: new Date().toISOString(),
@@ -1271,13 +1439,17 @@
         last_name: tgUser.last_name
       } : null
     };
+    if (consentCheckbox){
+      payload.consent_personal_data = consent;
+      if (consent) payload.consent_timestamp = new Date().toISOString();
+    }
 
     try{
       const fd = new FormData();
       fd.append('payload', JSON.stringify(payload));
       if (state.photoFile) fd.append('photo', state.photoFile, state.photoFile.name);
 
-      const res = await fetch('/api/review', { method:'POST', body: fd });
+      const res = await fetch(`${apiPrefix}/review`, { method:'POST', body: fd });
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1291,7 +1463,7 @@
     }catch(e){
       console.error(e);
       haptic('notification','error');
-      toast('Ошибка отправки. Проверь backend /api/review (multipart).', 'bad');
+      toast('Ошибка отправки. Проверь backend (API).', 'bad');
     }finally{
       state.sending = false;
       syncFormUI();
@@ -1318,7 +1490,7 @@
       params.set('offset', String(history.offset));
       params.set('limit', String(history.limit));
 
-      const res = await fetch('/api/reviews?' + params.toString());
+      const res = await fetch(`${apiPrefix}${historyPath}?` + params.toString());
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1338,7 +1510,7 @@
     }catch(e){
       console.error(e);
       historyHint.textContent = 'Не удалось загрузить отзывы.';
-      historyFooter.textContent = 'Проверь backend /api/reviews.';
+      historyFooter.textContent = 'Проверь backend (API).';
       loadMoreBtn.disabled = true;
     }
   }
@@ -1347,7 +1519,7 @@
   async function loadPromo(){
     if (promoData) return promoData;
     try{
-      const res = await fetch('/promo.json');
+      const res = await fetch(`${basePrefix}/promo.json`);
       if (!res.ok) return null;
       promoData = await res.json();
       return promoData;
@@ -1375,6 +1547,23 @@
   function hideSuccessModal(){
     successModal.classList.add('hidden');
     promoCopiedHint.classList.remove('show');
+  }
+
+  function openConsentModal(){
+    if (!consentModal) return;
+    consentModal.classList.remove('hidden');
+    document.body.classList.add('no-scroll');
+  }
+
+  function closeConsentModal(){
+    if (!consentModal) return;
+    consentModal.classList.add('hidden');
+    document.body.classList.remove('no-scroll');
+  }
+
+  function syncConsentDebug(){
+    const consent = !!consentCheckbox?.checked;
+    if (DEBUG_MODE) console.log('[debug] consent_personal_data:', consent);
   }
 
   async function copyPromo(code){
@@ -1464,6 +1653,7 @@
     clearRowError(reviewTopCard, errCategory);
     clearRowError(dropZone, errTeaPhoto);
     clearRowError(ratingRow, errRating);
+    if (consentRow && errConsent) clearRowError(consentRow, errConsent);
   }
   function shake(el){
     el.classList.remove('shake');
@@ -1532,6 +1722,7 @@
 
   // ---------- Start app
   nav('home');
+  syncConsentDebug();
 })();
 </script>
 </body>
