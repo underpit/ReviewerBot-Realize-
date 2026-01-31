@@ -438,7 +438,7 @@ def _build_text_parts(review: dict) -> tuple[str, str, str, str]:
         lines.append(f"Чай: {review['tea_title']}")
 
     lines.append(f"Рейтинг: {stars or '—'}")
-    lines.append(f"Лучшие моменты: {liked}")
+    lines.append(f"Понравилось: {liked}")
     if disliked:
         lines.append(f"Не понравилось: {disliked}")
 
