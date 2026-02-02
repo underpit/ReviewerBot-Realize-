@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional, Tuple
 import signal
 import telegram
+from urllib.parse import urlparse
 from aiohttp import web
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import (
@@ -17,6 +18,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -51,6 +53,47 @@ if WEBHOOK_PATH and not WEBHOOK_PATH.startswith("/"):
     WEBHOOK_PATH = f"/{WEBHOOK_PATH}"
 
 LOG_PREFIX = f"[{BOT_NAME}] " if BOT_NAME else ""
+STARTED_AT = datetime.utcnow()
+LAST_UPDATE_TS: Optional[datetime] = None
+
+def _parse_int_list(value: Optional[str]) -> list[int]:
+    if not value:
+        return []
+    parts = [p.strip() for p in value.split(",") if p.strip()]
+    out: list[int] = []
+    for p in parts:
+        try:
+            out.append(int(p))
+        except ValueError:
+            logging.getLogger(__name__).warning("Invalid admin id: %s", p)
+    return out
+
+ADMIN_IDS = _parse_int_list(os.environ.get("ADMIN_IDS") or os.environ.get("BOT_ADMIN_IDS"))
+
+def _normalize_webapp_url(raw: str) -> str:
+    if not raw:
+        return raw
+    return raw if raw.endswith("/") else f"{raw}/"
+
+def _resolve_public_base_url() -> Optional[str]:
+    if PUBLIC_BASE_URL:
+        return PUBLIC_BASE_URL
+    parsed = urlparse(WEBAPP_URL)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return None
+
+def _describe_update(update: Update) -> dict:
+    msg = update.effective_message
+    user = update.effective_user
+    return {
+        "update_id": update.update_id,
+        "type": "message" if update.message else "callback_query" if update.callback_query else "other",
+        "text": getattr(msg, "text", None) or getattr(msg, "caption", None),
+        "from_user_id": user.id if user else None,
+        "from_username": user.username if user else None,
+        "chat_id": msg.chat_id if msg else None,
+    }
 
 ALLOWED_CATEGORIES = {"tea", "service", "delivery"}
 ALLOWED_NAME_MODES = {"tg", "anon", "custom"}
@@ -79,7 +122,7 @@ def load_env_file() -> None:
                 if key and key not in os.environ:
                     os.environ[key] = value
     except Exception:
-        pass
+        logging.getLogger(__name__).exception("Failed to load .env")
 
 
 def resolve_db_path() -> str:
@@ -184,7 +227,7 @@ def init_db() -> None:
 
 
 init_db()
-logger.info("База данных: %s", DB_PATH)
+logger.info("%sБаза данных: %s", LOG_PREFIX, DB_PATH)
 
 # -------------------------------------------------------------
 # Telegram helpers
@@ -192,9 +235,10 @@ logger.info("База данных: %s", DB_PATH)
 
 
 def webapp_keyboard() -> InlineKeyboardMarkup:
+    url = _normalize_webapp_url(WEBAPP_URL)
     keyboard = [
         [
-            InlineKeyboardButton("Оставить отзыв", web_app=WebAppInfo(WEBAPP_URL)),
+            InlineKeyboardButton("Оставить отзыв", web_app=WebAppInfo(url)),
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -202,8 +246,14 @@ def webapp_keyboard() -> InlineKeyboardMarkup:
 
 async def send_webapp_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat and update.effective_chat.type != "private":
+        logger.info("%sstart.skip_non_private", LOG_PREFIX, extra=_describe_update(update))
         return
-    text = "Чтобы оставить отзыв, воспользуйтесь кнопкой ниже:"
+    url = _normalize_webapp_url(WEBAPP_URL)
+    text = (
+        "Чтобы оставить отзыв, воспользуйтесь кнопкой ниже.\n"
+        f"Если кнопка не открывается, используйте ссылку: {url}"
+    )
+    logger.info("%sstart.send_webapp_link", LOG_PREFIX, extra=_describe_update(update))
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
@@ -212,11 +262,24 @@ async def send_webapp_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("%sstart.command", LOG_PREFIX, extra=_describe_update(update))
     await send_webapp_link(update, context)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_webapp_link(update, context)
+
+async def log_update_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("%sUpdate received", LOG_PREFIX, extra=_describe_update(update))
+
+async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if ADMIN_IDS and user and user.id not in ADMIN_IDS:
+        logger.info("%sping.denied", LOG_PREFIX, extra=_describe_update(update))
+        await update.effective_message.reply_text("Доступ запрещен.")
+        return
+    logger.info("%sping.ok", LOG_PREFIX, extra=_describe_update(update))
+    await update.effective_message.reply_text("pong")
 
 
 async def callback_fallback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -234,13 +297,13 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Логируем web_app_data, если Mini App решит присылать данные через sendData."""
     msg = update.effective_message
     data = msg.web_app_data.data if msg and msg.web_app_data else ""
-    logger.info("Received web_app_data: %s", data)
+    logger.info("%sReceived web_app_data: %s", LOG_PREFIX, data)
     if msg:
         await msg.reply_text("Данные из WebApp получены. Спасибо!")
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.error("Update %s caused error %s", update, context.error)
+    logger.exception("%sUpdate caused error: %s", LOG_PREFIX, context.error, extra={"update": update})
 
 
 # -------------------------------------------------------------
@@ -344,7 +407,7 @@ async def _save_photo(part) -> Tuple[Optional[str], Optional[str]]:
             try:
                 os.remove(dest_path)
             except OSError:
-                pass
+                logger.exception("Failed to remove temp photo %s", dest_path)
         return None, str(e)
 
     return dest_path, None
@@ -818,23 +881,70 @@ async def serve_promo(_: web.Request) -> web.Response:
 async def healthcheck(_: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
+async def debug_diag(_: web.Request) -> web.Response:
+    return web.json_response(
+        {
+            "ok": True,
+            "mode": "webhook",
+            "bot_name": BOT_NAME or None,
+            "webapp_url": WEBAPP_URL,
+            "webhook_path": WEBHOOK_PATH,
+            "public_base_url": PUBLIC_BASE_URL or None,
+            "resolved_base_url": _resolve_public_base_url(),
+            "webhook_url": f"{_resolve_public_base_url()}{WEBHOOK_PATH}" if _resolve_public_base_url() else None,
+            "started_at": STARTED_AT.isoformat(),
+            "last_update_ts": LAST_UPDATE_TS.isoformat() if LAST_UPDATE_TS else None,
+        }
+    )
+
+@web.middleware
+async def api_log_middleware(request: web.Request, handler):
+    path = request.path
+    if path == WEBHOOK_PATH or path.startswith("/api/") or path.startswith("/api-debug/") or path.startswith(f"{API_PREFIX}/"):
+        logger.info(
+            "%sHTTP request",
+            LOG_PREFIX,
+            extra={
+                "method": request.method,
+                "path": path,
+                "remote": request.remote,
+                "content_length": request.content_length,
+                "user_agent": request.headers.get("User-Agent"),
+            },
+        )
+    return await handler(request)
+
 
 async def telegram_webhook(request: web.Request) -> web.Response:
+    logger.info(
+        "%sWebhook request",
+        LOG_PREFIX,
+        extra={
+            "path": request.path,
+            "remote": request.remote,
+            "content_length": request.content_length,
+            "user_agent": request.headers.get("User-Agent"),
+        },
+    )
     if WEBHOOK_SECRET:
         header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
         query_token = request.query.get("token")
         if header_token != WEBHOOK_SECRET and query_token != WEBHOOK_SECRET:
             logger.warning("%sWebhook secret mismatch from %s", LOG_PREFIX, request.remote)
-            return web.Response(status=401, text="unauthorized")
+            return web.Response(status=403, text="forbidden")
 
     try:
         payload = await request.json()
     except Exception:
+        logger.exception("%sWebhook invalid json", LOG_PREFIX)
         return web.Response(status=400, text="invalid json")
 
     update = Update.de_json(payload, request.app["bot"])
     if update:
+        global LAST_UPDATE_TS
+        LAST_UPDATE_TS = datetime.utcnow()
         application: Application = request.app["tg_app"]
+        logger.info("%sWebhook update received", LOG_PREFIX, extra=_describe_update(update))
         try:
             application.update_queue.put_nowait(update)
         except asyncio.QueueFull:
@@ -845,12 +955,14 @@ async def telegram_webhook(request: web.Request) -> web.Response:
                     logger.exception("%sFailed to process update", LOG_PREFIX)
 
             asyncio.create_task(_process())
+    else:
+        logger.warning("%sWebhook update is empty", LOG_PREFIX)
 
     return web.Response(status=200, text="ok")
 
 
 def build_web_app(bot: telegram.Bot, application: Application) -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[api_log_middleware])
     app["bot"] = bot
     app["tg_app"] = application
     app.router.add_get("/", serve_index)
@@ -858,6 +970,7 @@ def build_web_app(bot: telegram.Bot, application: Application) -> web.Applicatio
     app.router.add_get("/debug", serve_index)
     app.router.add_get("/debug/", serve_index)
     app.router.add_get("/health", healthcheck)
+    app.router.add_get(f"{API_PREFIX}/diag", debug_diag)
     app.router.add_get("/debug/promo.json", serve_promo)
     app.router.add_post(WEBHOOK_PATH, telegram_webhook)
     app.router.add_post("/api/review", api_create_review)
@@ -875,18 +988,40 @@ async def start_web_server(bot: telegram.Bot, application: Application) -> web.A
     await runner.setup()
     site = web.TCPSite(runner, host=WEBAPP_HOST, port=WEBAPP_PORT)
     await site.start()
-    logger.info("WebApp сервер запущен на %s", WEBAPP_URL)
+    logger.info(
+        "%sWebApp сервер запущен",
+        LOG_PREFIX,
+        extra={"webapp_url": WEBAPP_URL, "host": WEBAPP_HOST, "port": WEBAPP_PORT},
+    )
     return runner
 
 
 async def configure_webhook(bot: telegram.Bot) -> None:
-    if not PUBLIC_BASE_URL:
-        logger.warning("%sPUBLIC_BASE_URL is not set; webhook registration skipped", LOG_PREFIX)
+    base_url = _resolve_public_base_url()
+    if not base_url:
+        logger.warning(
+            "%sPUBLIC_BASE_URL is not set and cannot be derived; webhook registration skipped",
+            LOG_PREFIX,
+        )
         return
-    url = f"{PUBLIC_BASE_URL}{WEBHOOK_PATH}"
+    url = f"{base_url}{WEBHOOK_PATH}"
     try:
         await bot.set_webhook(url=url, secret_token=WEBHOOK_SECRET or None)
         logger.info("%sWebhook установлен: %s", LOG_PREFIX, url)
+        try:
+            info = await bot.get_webhook_info()
+            logger.info(
+                "%sWebhook info",
+                LOG_PREFIX,
+                extra={
+                    "url": info.url,
+                    "pending_update_count": info.pending_update_count,
+                    "last_error_date": info.last_error_date,
+                    "last_error_message": info.last_error_message,
+                },
+            )
+        except Exception:
+            logger.exception("%sgetWebhookInfo failed", LOG_PREFIX)
     except Exception as e:
         logger.error("%ssetWebhook failed: %s", LOG_PREFIX, e)
         raise
@@ -908,6 +1043,8 @@ async def async_main() -> None:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("ping", ping_command))
+    application.add_handler(TypeHandler(Update, log_update_handler), group=2)
     application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_data_handler))
     application.add_handler(CallbackQueryHandler(callback_fallback, pattern=".*"))
     application.add_handler(
@@ -926,12 +1063,30 @@ async def async_main() -> None:
         try:
             loop.add_signal_handler(sig, stop_event.set)
         except NotImplementedError:
-            pass
+            logger.info("%sSignal handlers not supported on this platform", LOG_PREFIX)
 
     try:
         # Полный “ручной” жизненный цикл PTB (без polling)
         await application.initialize()
         await application.start()
+        try:
+            me = await application.bot.get_me()
+            logger.info(
+                "%sBot started",
+                LOG_PREFIX,
+                extra={
+                    "mode": "webhook",
+                    "bot_username": me.username,
+                    "webhook_path": WEBHOOK_PATH,
+                    "public_base_url": PUBLIC_BASE_URL,
+                    "resolved_base_url": _resolve_public_base_url(),
+                    "webhook_url": f"{_resolve_public_base_url()}{WEBHOOK_PATH}" if _resolve_public_base_url() else None,
+                    "listen_host": WEBAPP_HOST,
+                    "listen_port": WEBAPP_PORT,
+                },
+            )
+        except Exception:
+            logger.exception("%sBot startup info failed", LOG_PREFIX)
         await configure_webhook(application.bot)
         if os.environ.get("RUN_SEND_TESTS") == "1":
             await _run_send_tests(application.bot)
@@ -943,12 +1098,12 @@ async def async_main() -> None:
         try:
             await application.stop()
         except Exception:
-            pass
+            logger.exception("%sBot stop failed", LOG_PREFIX)
 
         try:
             await application.shutdown()
         except Exception:
-            pass
+            logger.exception("%sBot shutdown failed", LOG_PREFIX)
 
         await runner.cleanup()
 
