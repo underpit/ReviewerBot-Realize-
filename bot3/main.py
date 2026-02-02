@@ -1,5 +1,4 @@
 import asyncio
-import html
 import json
 import logging
 import os
@@ -9,7 +8,6 @@ from datetime import datetime
 from typing import Optional, Tuple
 import signal
 import telegram
-from urllib.parse import urlparse
 from aiohttp import web
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import (
@@ -18,7 +16,6 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
-    TypeHandler,
     filters,
 )
 
@@ -35,11 +32,6 @@ WEBAPP_HOST = os.environ.get("WEBAPP_HOST", "0.0.0.0")  # env: bind host
 WEBAPP_PORT = int(os.environ.get("WEBAPP_PORT", "8080"))  # env: bind port
 WEBAPP_URL = os.environ.get("WEBAPP_URL", f"http://{WEBAPP_HOST}:{WEBAPP_PORT}/debug")  # env: WebApp URL
 
-# API prefix for debug endpoints (default: /api-debug)
-API_PREFIX = (os.environ.get("API_PREFIX") or "/api-debug").strip()
-if API_PREFIX and not API_PREFIX.startswith("/"):
-    API_PREFIX = f"/{API_PREFIX}"
-API_PREFIX = API_PREFIX.rstrip("/")
 # env: optional bot name for logs
 BOT_NAME = (os.environ.get("BOT_NAME") or "").strip()
 # env: webhook path (e.g. /webhook/bot1)
@@ -53,47 +45,6 @@ if WEBHOOK_PATH and not WEBHOOK_PATH.startswith("/"):
     WEBHOOK_PATH = f"/{WEBHOOK_PATH}"
 
 LOG_PREFIX = f"[{BOT_NAME}] " if BOT_NAME else ""
-STARTED_AT = datetime.utcnow()
-LAST_UPDATE_TS: Optional[datetime] = None
-
-def _parse_int_list(value: Optional[str]) -> list[int]:
-    if not value:
-        return []
-    parts = [p.strip() for p in value.split(",") if p.strip()]
-    out: list[int] = []
-    for p in parts:
-        try:
-            out.append(int(p))
-        except ValueError:
-            logging.getLogger(__name__).warning("Invalid admin id: %s", p)
-    return out
-
-ADMIN_IDS = _parse_int_list(os.environ.get("ADMIN_IDS") or os.environ.get("BOT_ADMIN_IDS"))
-
-def _normalize_webapp_url(raw: str) -> str:
-    if not raw:
-        return raw
-    return raw if raw.endswith("/") else f"{raw}/"
-
-def _resolve_public_base_url() -> Optional[str]:
-    if PUBLIC_BASE_URL:
-        return PUBLIC_BASE_URL
-    parsed = urlparse(WEBAPP_URL)
-    if parsed.scheme and parsed.netloc:
-        return f"{parsed.scheme}://{parsed.netloc}"
-    return None
-
-def _describe_update(update: Update) -> dict:
-    msg = update.effective_message
-    user = update.effective_user
-    return {
-        "update_id": update.update_id,
-        "type": "message" if update.message else "callback_query" if update.callback_query else "other",
-        "text": getattr(msg, "text", None) or getattr(msg, "caption", None),
-        "from_user_id": user.id if user else None,
-        "from_username": user.username if user else None,
-        "chat_id": msg.chat_id if msg else None,
-    }
 
 ALLOWED_CATEGORIES = {"tea", "service", "delivery"}
 ALLOWED_NAME_MODES = {"tg", "anon", "custom"}
@@ -122,7 +73,7 @@ def load_env_file() -> None:
                 if key and key not in os.environ:
                     os.environ[key] = value
     except Exception:
-        logging.getLogger(__name__).exception("Failed to load .env")
+        pass
 
 
 def resolve_db_path() -> str:
@@ -227,7 +178,7 @@ def init_db() -> None:
 
 
 init_db()
-logger.info("%sБаза данных: %s", LOG_PREFIX, DB_PATH)
+logger.info("База данных: %s", DB_PATH)
 
 # -------------------------------------------------------------
 # Telegram helpers
@@ -235,10 +186,9 @@ logger.info("%sБаза данных: %s", LOG_PREFIX, DB_PATH)
 
 
 def webapp_keyboard() -> InlineKeyboardMarkup:
-    url = _normalize_webapp_url(WEBAPP_URL)
     keyboard = [
         [
-            InlineKeyboardButton("Оставить отзыв", web_app=WebAppInfo(url)),
+            InlineKeyboardButton("Оставить отзыв", web_app=WebAppInfo(WEBAPP_URL)),
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -246,14 +196,8 @@ def webapp_keyboard() -> InlineKeyboardMarkup:
 
 async def send_webapp_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_chat and update.effective_chat.type != "private":
-        logger.info("%sstart.skip_non_private", LOG_PREFIX, extra=_describe_update(update))
         return
-    url = _normalize_webapp_url(WEBAPP_URL)
-    text = (
-        "Чтобы оставить отзыв, воспользуйтесь кнопкой ниже.\n"
-        f"Если кнопка не открывается, используйте ссылку: {url}"
-    )
-    logger.info("%sstart.send_webapp_link", LOG_PREFIX, extra=_describe_update(update))
+    text = "Чтобы оставить отзыв, воспользуйтесь кнопкой ниже:"
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=text,
@@ -262,24 +206,11 @@ async def send_webapp_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("%sstart.command", LOG_PREFIX, extra=_describe_update(update))
     await send_webapp_link(update, context)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_webapp_link(update, context)
-
-async def log_update_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("%sUpdate received", LOG_PREFIX, extra=_describe_update(update))
-
-async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    if ADMIN_IDS and user and user.id not in ADMIN_IDS:
-        logger.info("%sping.denied", LOG_PREFIX, extra=_describe_update(update))
-        await update.effective_message.reply_text("Доступ запрещен.")
-        return
-    logger.info("%sping.ok", LOG_PREFIX, extra=_describe_update(update))
-    await update.effective_message.reply_text("pong")
 
 
 async def callback_fallback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -297,13 +228,13 @@ async def webapp_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Логируем web_app_data, если Mini App решит присылать данные через sendData."""
     msg = update.effective_message
     data = msg.web_app_data.data if msg and msg.web_app_data else ""
-    logger.info("%sReceived web_app_data: %s", LOG_PREFIX, data)
+    logger.info("Received web_app_data: %s", data)
     if msg:
         await msg.reply_text("Данные из WebApp получены. Спасибо!")
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.exception("%sUpdate caused error: %s", LOG_PREFIX, context.error, extra={"update": update})
+    logger.error("Update %s caused error %s", update, context.error)
 
 
 # -------------------------------------------------------------
@@ -407,7 +338,7 @@ async def _save_photo(part) -> Tuple[Optional[str], Optional[str]]:
             try:
                 os.remove(dest_path)
             except OSError:
-                logger.exception("Failed to remove temp photo %s", dest_path)
+                pass
         return None, str(e)
 
     return dest_path, None
@@ -465,26 +396,15 @@ def _split_text(text: str, limit: int) -> list[str]:
     return parts
 
 
-def _escape_html(text: str) -> str:
-    return html.escape(text or "", quote=False)
-
-
-def _truncate_text(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    if limit <= 0:
-        return ""
-    return text[: max(0, limit - 1)] + "…"
-
-
-def _build_text_parts(review: dict) -> tuple[str, str, str, str]:
-    """Return header, review_text, full_text, tags (raw, no HTML)."""
+def _format_channel_caption(review: dict) -> str:
+    """Короткий caption (<=1024), без простыни текста."""
     category_title = CATEGORY_TITLES.get(review["category"], review["category"])
     stars = "⭐" * int(review.get("rating") or 0)
     liked = review.get("liked_most") or "Ничего"
     disliked = review.get("disliked_most") or ""
 
     lines = []
+
     name_mode = review.get("name_mode")
     if name_mode != "anon":
         published = None
@@ -501,177 +421,94 @@ def _build_text_parts(review: dict) -> tuple[str, str, str, str]:
         lines.append(f"Чай: {review['tea_title']}")
 
     lines.append(f"Рейтинг: {stars or '—'}")
-    lines.append(f"Понравилось: {liked}")
+    lines.append(f"Лучшие моменты: {liked}")
     if disliked:
         lines.append(f"Не понравилось: {disliked}")
+    lines.append("")
+    lines.append(f"#отзыв #отзыв_{category_title.lower()}")
 
-    header_text = "\n".join(lines).strip()
-    tags = f"#отзыв #отзыв_{category_title.lower()}"
-    review_text = (review.get("text") or "").strip()
-
-    full_text = header_text or ""
-    if review_text:
-        full_text = f"{full_text}\n\nОтзыв:\n{review_text}" if full_text else f"Отзыв:\n{review_text}"
-    if tags:
-        full_text = f"{full_text}\n\n{tags}" if full_text else tags
-
-    return header_text, review_text, full_text, tags
-
-
-def _fit_full_text(header_text: str, review_text: str, tags: str, limit: int) -> str:
-    """Ensure message fits Telegram limit while keeping structure."""
-    base = header_text or ""
-    if review_text:
-        base = f"{base}\n\nОтзыв:\n{review_text}" if base else f"Отзыв:\n{review_text}"
-    suffix = f"\n\n{tags}" if tags else ""
-    full = f"{base}{suffix}"
-    if len(full) <= limit:
-        return full
-
-    if not review_text:
-        return _truncate_text(full, limit)
-
-    prefix = f"{header_text}\n\nОтзыв:\n" if header_text else "Отзыв:\n"
-    available = limit - len(prefix) - len(suffix)
-    if available <= 0:
-        trimmed_header = _truncate_text(header_text, max(0, limit - len(suffix)))
-        return f"{trimmed_header}{suffix}".strip()
-
-    trimmed_review = _truncate_text(review_text, available)
-    return f"{prefix}{trimmed_review}{suffix}".strip()
+    caption = "\n".join(lines)
+    return caption[:TG_CAPTION_LIMIT]
 
 
 def _format_channel_summary(review: dict) -> str:
-    header_text, _, _, tags = _build_text_parts(review)
-    summary = header_text
-    if tags:
-        summary = f"{summary}\n\n{tags}" if summary else tags
-    return summary
+    category_title = CATEGORY_TITLES.get(review["category"], review["category"])
+    stars = "⭐" * int(review.get("rating") or 0)
+    liked = review.get("liked_most") or "Ничего"
+    disliked = review.get("disliked_most") or ""
+
+    lines = []
+
+    name_mode = review.get("name_mode")
+    if name_mode != "anon":
+        published = None
+        if name_mode == "tg" and review.get("tg_username"):
+            published = f"@{review['tg_username']}"
+        elif review.get("display_name"):
+            published = review["display_name"]
+        if published:
+            lines.append(f"Опубликовано: {published}")
+
+    if review["category"] != "tea":
+        lines.append(f"Категория: {category_title}")
+
+    if review["category"] == "tea" and review.get("tea_title"):
+        lines.append(f"Чай: {review['tea_title']}")
+
+    lines.append(f"Рейтинг: {stars or '—'}")
+    lines.append(f"Лучшие моменты: {liked}")
+    if disliked:
+        lines.append(f"Не понравилось: {disliked}")
+    lines.append("")
+
+    tag_category = category_title.lower()
+    lines.append(f"#отзыв #отзыв_{tag_category}")
+
+    return "\n".join(lines)
 
 
-def _format_channel_caption(review: dict) -> str:
-    """Short caption (<=1024)."""
-    header_text, _, _, tags = _build_text_parts(review)
-    caption = header_text
-    if tags:
-        caption = f"{caption}\n\n{tags}" if caption else tags
-    return _truncate_text(caption, TG_CAPTION_LIMIT)
+def _format_review_text(review: dict) -> str:
+    text = (review.get("text") or "").strip()
+    if not text:
+        return ""
+    if REVIEW_TEXT_PREFIX:
+        return f"{REVIEW_TEXT_PREFIX}\n{text}"
+    return text
 
 
-async def send_review_to_channel(
-    bot: telegram.Bot,
-    channel_id: str,
-    *,
-    review: dict,
-    dry_run: bool = False,
-) -> dict:
-    """
-    Robust sender with logging:
-    - one message for non-tea or no photo
-    - photo + caption if <=1024
-    - photo + reply with review text if caption >1024
-    """
-    header_text, review_text, full_text, tags = _build_text_parts(review)
-    requires_photo = review.get("category") == "tea"
-    photo_path = review.get("photo_path")
+async def _send_to_channel(bot: telegram.Bot, review: dict) -> None:
+    summary_message = _format_channel_summary(review)
+    caption = _format_channel_caption(review)
+    review_text_message = _format_review_text(review)
 
-    caption_raw = full_text
-    caption_escaped = _escape_html(caption_raw)
-    caption_len = len(caption_escaped)
-    full_len = len(_escape_html(full_text))
-    review_len = len(_escape_html(review_text))
+    async with CHANNEL_SEND_LOCK:
+        if review.get("photo_path"):
+            if len(summary_message) <= TG_CAPTION_LIMIT:
+                with open(review["photo_path"], "rb") as photo_file:
+                    await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file, caption=caption)
 
-    logger.info(
-        "send_review.start",
-        extra={
-            "category": review.get("category"),
-            "requires_photo": requires_photo,
-            "channel_id": channel_id,
-            "caption_len": caption_len,
-            "full_text_len": full_len,
-            "review_text_len": review_len,
-            "has_photo": bool(photo_path),
-            "photo_path": photo_path,
-            "dry_run": dry_run,
-        },
-    )
-
-    if requires_photo and not photo_path:
-        logger.warning("send_review.missing_photo", extra={"channel_id": channel_id})
-        return {"ok": False, "error": "Фото обязательно для категории tea"}
-
-    try:
-        async with CHANNEL_SEND_LOCK:
-            # Rule A: non-tea or no photo -> single sendMessage only.
-            if not requires_photo or not photo_path:
-                single = _fit_full_text(header_text, review_text, tags, TG_MESSAGE_LIMIT)
-                if dry_run:
-                    return {"ok": True, "message_ids": ["dry_run_single"]}
-                msg = await bot.send_message(
-                    chat_id=channel_id,
-                    text=_escape_html(single),
-                    parse_mode="HTML",
-                )
-                logger.info("send_review.ok.single", extra={"message_id": msg.message_id})
-                return {"ok": True, "message_ids": [msg.message_id]}
-
-            # Rule C: tea + photo + text fits caption -> send one photo with full caption.
-            if len(caption_escaped) <= TG_CAPTION_LIMIT:
-                if dry_run:
-                    return {"ok": True, "message_ids": ["dry_run_photo"]}
-                with open(photo_path, "rb") as photo_file:
-                    msg = await bot.send_photo(
-                        chat_id=channel_id,
-                        photo=photo_file,
-                        caption=caption_escaped,
-                        parse_mode="HTML",
-                    )
-                logger.info("send_review.ok.photo", extra={"message_id": msg.message_id})
-                return {"ok": True, "message_ids": [msg.message_id]}
-
-            # Rule B: tea + photo + caption > 1024 -> photo with short header, review as reply.
-            caption_short = _format_channel_caption(review)
-            caption_short_escaped = _escape_html(caption_short) if caption_short else None
-            if dry_run:
-                return {"ok": True, "message_ids": ["dry_run_photo", "dry_run_reply"]}
-            with open(photo_path, "rb") as photo_file:
-                photo_msg = await bot.send_photo(
-                    chat_id=channel_id,
-                    photo=photo_file,
-                    caption=caption_short_escaped if caption_short_escaped else None,
-                    parse_mode="HTML" if caption_short_escaped else None,
-                )
-
-            if review_text:
-                reply_text = _truncate_text(f"Отзыв:\n{review_text}", TG_MESSAGE_LIMIT)
-                try:
-                    # Reply keeps visual width aligned with the photo message.
-                    msg = await bot.send_message(
-                        chat_id=channel_id,
-                        text=_escape_html(reply_text),
-                        parse_mode="HTML",
-                        reply_to_message_id=photo_msg.message_id,
-                        allow_sending_without_reply=True,
-                    )
-                except Exception:
-                    # If replies are not supported, send after with separator.
-                    fallback = f"———\n{reply_text}\n———"
-                    msg = await bot.send_message(
-                        chat_id=channel_id,
-                        text=_escape_html(fallback),
-                        parse_mode="HTML",
-                    )
+                if review_text_message:
+                    for chunk in _split_text(review_text_message, TG_MESSAGE_LIMIT):
+                        if chunk.strip():
+                            await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
             else:
-                msg = photo_msg
-
-            logger.info(
-                "send_review.ok.photo_reply",
-                extra={"photo_message_id": photo_msg.message_id, "reply_message_id": msg.message_id},
-            )
-            return {"ok": True, "message_ids": [photo_msg.message_id, msg.message_id]}
-    except Exception as e:
-        logger.exception("send_review.failed", extra={"error": str(e)})
-        return {"ok": False, "error": "Не удалось отправить в Telegram"}
+                for chunk in _split_text(summary_message, TG_MESSAGE_LIMIT):
+                    if chunk.strip():
+                        await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+                if review_text_message:
+                    for chunk in _split_text(review_text_message, TG_MESSAGE_LIMIT):
+                        if chunk.strip():
+                            await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+                with open(review["photo_path"], "rb") as photo_file:
+                    await bot.send_photo(chat_id=CHANNEL_ID, photo=photo_file)
+        else:
+            for chunk in _split_text(summary_message, TG_MESSAGE_LIMIT):
+                if chunk.strip():
+                    await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
+            if review_text_message:
+                for chunk in _split_text(review_text_message, TG_MESSAGE_LIMIT):
+                    if chunk.strip():
+                        await bot.send_message(chat_id=CHANNEL_ID, text=chunk)
 
 
 async def api_create_review(request: web.Request) -> web.Response:
@@ -715,12 +552,11 @@ async def api_create_review(request: web.Request) -> web.Response:
     )
 
     bot: telegram.Bot = request.app["bot"]
-    result = await send_review_to_channel(bot, CHANNEL_ID, review=review)
-    if not result.get("ok"):
-        return web.json_response(
-            {"ok": False, "error": result.get("error", "Сохранено, но не отправлено в канал")},
-            status=500,
-        )
+    try:
+        await _send_to_channel(bot, review)
+    except Exception as e:
+        logger.error("Send to channel failed for web review %s: %s", review_id, e)
+        return web.json_response({"ok": False, "error": "Сохранено, но не отправлено в канал"}, status=500)
 
     return web.json_response({"ok": True, "id": review_id}, status=201)
 
@@ -837,9 +673,9 @@ async def api_debug_preview(request: web.Request) -> web.Response:
     if err:
         return _bad_request(err)
 
-    header_text, review_text, full_text, tags = _build_text_parts(review)
     summary = _format_channel_summary(review)
     caption = _format_channel_caption(review)
+    review_text = _format_review_text(review)
 
     logger.info(
         "Debug preview: category=%s name_mode=%s rating=%s",
@@ -853,9 +689,11 @@ async def api_debug_preview(request: web.Request) -> web.Response:
             "ok": True,
             "summary": summary,
             "caption": caption,
-            "header_text": header_text,
             "review_text": review_text,
-            "full_text": full_text,
+            "summary_chunks": _split_text(summary, TG_MESSAGE_LIMIT),
+            "review_text_chunks": _split_text(review_text, TG_MESSAGE_LIMIT)
+            if review_text
+            else [],
             "requires_photo": review.get("category") == "tea",
         }
     )
@@ -878,73 +716,22 @@ async def serve_promo(_: web.Request) -> web.Response:
         return web.json_response({"error": "promo.json invalid"}, status=500)
 
 
-async def healthcheck(_: web.Request) -> web.Response:
-    return web.json_response({"ok": True})
-
-async def debug_diag(_: web.Request) -> web.Response:
-    return web.json_response(
-        {
-            "ok": True,
-            "mode": "webhook",
-            "bot_name": BOT_NAME or None,
-            "webapp_url": WEBAPP_URL,
-            "webhook_path": WEBHOOK_PATH,
-            "public_base_url": PUBLIC_BASE_URL or None,
-            "resolved_base_url": _resolve_public_base_url(),
-            "webhook_url": f"{_resolve_public_base_url()}{WEBHOOK_PATH}" if _resolve_public_base_url() else None,
-            "started_at": STARTED_AT.isoformat(),
-            "last_update_ts": LAST_UPDATE_TS.isoformat() if LAST_UPDATE_TS else None,
-        }
-    )
-
-@web.middleware
-async def api_log_middleware(request: web.Request, handler):
-    path = request.path
-    if path == WEBHOOK_PATH or path.startswith("/api/") or path.startswith("/api-debug/") or path.startswith(f"{API_PREFIX}/"):
-        logger.info(
-            "%sHTTP request",
-            LOG_PREFIX,
-            extra={
-                "method": request.method,
-                "path": path,
-                "remote": request.remote,
-                "content_length": request.content_length,
-                "user_agent": request.headers.get("User-Agent"),
-            },
-        )
-    return await handler(request)
-
-
 async def telegram_webhook(request: web.Request) -> web.Response:
-    logger.info(
-        "%sWebhook request",
-        LOG_PREFIX,
-        extra={
-            "path": request.path,
-            "remote": request.remote,
-            "content_length": request.content_length,
-            "user_agent": request.headers.get("User-Agent"),
-        },
-    )
     if WEBHOOK_SECRET:
         header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
         query_token = request.query.get("token")
         if header_token != WEBHOOK_SECRET and query_token != WEBHOOK_SECRET:
             logger.warning("%sWebhook secret mismatch from %s", LOG_PREFIX, request.remote)
-            return web.Response(status=403, text="forbidden")
+            return web.Response(status=401, text="unauthorized")
 
     try:
         payload = await request.json()
     except Exception:
-        logger.exception("%sWebhook invalid json", LOG_PREFIX)
         return web.Response(status=400, text="invalid json")
 
     update = Update.de_json(payload, request.app["bot"])
     if update:
-        global LAST_UPDATE_TS
-        LAST_UPDATE_TS = datetime.utcnow()
         application: Application = request.app["tg_app"]
-        logger.info("%sWebhook update received", LOG_PREFIX, extra=_describe_update(update))
         try:
             application.update_queue.put_nowait(update)
         except asyncio.QueueFull:
@@ -955,29 +742,25 @@ async def telegram_webhook(request: web.Request) -> web.Response:
                     logger.exception("%sFailed to process update", LOG_PREFIX)
 
             asyncio.create_task(_process())
-    else:
-        logger.warning("%sWebhook update is empty", LOG_PREFIX)
 
     return web.Response(status=200, text="ok")
 
 
 def build_web_app(bot: telegram.Bot, application: Application) -> web.Application:
-    app = web.Application(middlewares=[api_log_middleware])
+    app = web.Application()
     app["bot"] = bot
     app["tg_app"] = application
     app.router.add_get("/", serve_index)
     app.router.add_get("/webapp", serve_index)
     app.router.add_get("/debug", serve_index)
     app.router.add_get("/debug/", serve_index)
-    app.router.add_get("/health", healthcheck)
-    app.router.add_get(f"{API_PREFIX}/diag", debug_diag)
     app.router.add_get("/debug/promo.json", serve_promo)
     app.router.add_post(WEBHOOK_PATH, telegram_webhook)
     app.router.add_post("/api/review", api_create_review)
     app.router.add_get("/api/reviews", api_get_reviews)
-    app.router.add_post(f"{API_PREFIX}/review", api_create_review)
-    app.router.add_get(f"{API_PREFIX}/review", api_get_reviews)
-    app.router.add_post(f"{API_PREFIX}/preview", api_debug_preview)
+    app.router.add_post("/api-debug/review", api_create_review)
+    app.router.add_get("/api-debug/review", api_get_reviews)
+    app.router.add_post("/api-debug/preview", api_debug_preview)
     app.router.add_static("/uploads/", path=UPLOAD_DIR, show_index=False)
     return app
 
@@ -988,40 +771,18 @@ async def start_web_server(bot: telegram.Bot, application: Application) -> web.A
     await runner.setup()
     site = web.TCPSite(runner, host=WEBAPP_HOST, port=WEBAPP_PORT)
     await site.start()
-    logger.info(
-        "%sWebApp сервер запущен",
-        LOG_PREFIX,
-        extra={"webapp_url": WEBAPP_URL, "host": WEBAPP_HOST, "port": WEBAPP_PORT},
-    )
+    logger.info("WebApp сервер запущен на %s", WEBAPP_URL)
     return runner
 
 
 async def configure_webhook(bot: telegram.Bot) -> None:
-    base_url = _resolve_public_base_url()
-    if not base_url:
-        logger.warning(
-            "%sPUBLIC_BASE_URL is not set and cannot be derived; webhook registration skipped",
-            LOG_PREFIX,
-        )
+    if not PUBLIC_BASE_URL:
+        logger.warning("%sPUBLIC_BASE_URL is not set; webhook registration skipped", LOG_PREFIX)
         return
-    url = f"{base_url}{WEBHOOK_PATH}"
+    url = f"{PUBLIC_BASE_URL}{WEBHOOK_PATH}"
     try:
         await bot.set_webhook(url=url, secret_token=WEBHOOK_SECRET or None)
         logger.info("%sWebhook установлен: %s", LOG_PREFIX, url)
-        try:
-            info = await bot.get_webhook_info()
-            logger.info(
-                "%sWebhook info",
-                LOG_PREFIX,
-                extra={
-                    "url": info.url,
-                    "pending_update_count": info.pending_update_count,
-                    "last_error_date": info.last_error_date,
-                    "last_error_message": info.last_error_message,
-                },
-            )
-        except Exception:
-            logger.exception("%sgetWebhookInfo failed", LOG_PREFIX)
     except Exception as e:
         logger.error("%ssetWebhook failed: %s", LOG_PREFIX, e)
         raise
@@ -1043,8 +804,6 @@ async def async_main() -> None:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("ping", ping_command))
-    application.add_handler(TypeHandler(Update, log_update_handler), group=2)
     application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_data_handler))
     application.add_handler(CallbackQueryHandler(callback_fallback, pattern=".*"))
     application.add_handler(
@@ -1063,33 +822,13 @@ async def async_main() -> None:
         try:
             loop.add_signal_handler(sig, stop_event.set)
         except NotImplementedError:
-            logger.info("%sSignal handlers not supported on this platform", LOG_PREFIX)
+            pass
 
     try:
         # Полный “ручной” жизненный цикл PTB (без polling)
         await application.initialize()
         await application.start()
-        try:
-            me = await application.bot.get_me()
-            logger.info(
-                "%sBot started",
-                LOG_PREFIX,
-                extra={
-                    "mode": "webhook",
-                    "bot_username": me.username,
-                    "webhook_path": WEBHOOK_PATH,
-                    "public_base_url": PUBLIC_BASE_URL,
-                    "resolved_base_url": _resolve_public_base_url(),
-                    "webhook_url": f"{_resolve_public_base_url()}{WEBHOOK_PATH}" if _resolve_public_base_url() else None,
-                    "listen_host": WEBAPP_HOST,
-                    "listen_port": WEBAPP_PORT,
-                },
-            )
-        except Exception:
-            logger.exception("%sBot startup info failed", LOG_PREFIX)
         await configure_webhook(application.bot)
-        if os.environ.get("RUN_SEND_TESTS") == "1":
-            await _run_send_tests(application.bot)
 
         # держим процесс живым
         await stop_event.wait()
@@ -1098,86 +837,14 @@ async def async_main() -> None:
         try:
             await application.stop()
         except Exception:
-            logger.exception("%sBot stop failed", LOG_PREFIX)
+            pass
 
         try:
             await application.shutdown()
         except Exception:
-            logger.exception("%sBot shutdown failed", LOG_PREFIX)
+            pass
 
         await runner.cleanup()
-
-
-async def _run_send_tests(bot: telegram.Bot) -> None:
-    """Dry-run tests for send logic (no Telegram calls)."""
-    logger.info("send_tests.start")
-    tests = [
-        {
-            "name": "tea_short_caption",
-            "review": {
-                "category": "tea",
-                "name_mode": "tg",
-                "tg_username": "tester",
-                "display_name": "Tester",
-                "tea_title": "Test Tea",
-                "rating": 5,
-                "liked_most": "Вкус",
-                "disliked_most": "Послевкусие",
-                "text": "Короткий отзыв",
-                "photo_path": "/tmp/fake.jpg",
-            },
-        },
-        {
-            "name": "tea_long_caption",
-            "review": {
-                "category": "tea",
-                "name_mode": "tg",
-                "tg_username": "tester",
-                "display_name": "Tester",
-                "tea_title": "Test Tea",
-                "rating": 5,
-                "liked_most": "Вкус",
-                "disliked_most": "Послевкусие",
-                "text": "Длинный " * 300,
-                "photo_path": "/tmp/fake.jpg",
-            },
-        },
-        {
-            "name": "service_no_photo",
-            "review": {
-                "category": "service",
-                "name_mode": "custom",
-                "display_name": "User",
-                "rating": 4,
-                "liked_most": "Скорость",
-                "text": "Сервис норм",
-                "photo_path": None,
-            },
-        },
-        {
-            "name": "tea_missing_photo",
-            "review": {
-                "category": "tea",
-                "name_mode": "custom",
-                "display_name": "User",
-                "tea_title": "Test Tea",
-                "rating": 4,
-                "liked_most": "Вкус",
-                "text": "Нет фото",
-                "photo_path": None,
-            },
-        },
-    ]
-
-    for t in tests:
-        res = await send_review_to_channel(
-            bot,
-            CHANNEL_ID,
-            review=t["review"],
-            dry_run=True,
-        )
-        logger.info("send_tests.case", extra={"case": t["name"], "result": res})
-    logger.info("send_tests.done")
 
 
 if __name__ == "__main__":

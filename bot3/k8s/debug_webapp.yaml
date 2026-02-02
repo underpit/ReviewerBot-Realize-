@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reviewbot-secrets
+type: Opaque
+stringData:
+  BOT_TOKEN: "7622589153:AAHwJGJeU1qsLdWKd7DFtwAW0XTIk18RHLo"
+  CHANNEL_ID: "-1002605857983"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reviewbot-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reviewbot-uploads-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debug-webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: debug-webapp
+  template:
+    metadata:
+      labels:
+        app: debug-webapp
+    spec:
+      containers:
+        - name: debug-webapp
+          image: underpit/underpits/debug_webapp:tagname
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: WEBAPP_HOST
+              value: "0.0.0.0"
+            - name: WEBAPP_PORT
+              value: "8080"
+            - name: RB_REVIEWS_DB
+              value: "/app/data/reviews.db"
+            - name: BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: reviewbot-secrets
+                  key: BOT_TOKEN
+            - name: CHANNEL_ID
+              valueFrom:
+                secretKeyRef:
+                  name: reviewbot-secrets
+                  key: CHANNEL_ID
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: uploads
+              mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /debug
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /debug
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: reviewbot-data-pvc
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: reviewbot-uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: debug-webapp
+spec:
+  selector:
+    app: debug-webapp
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

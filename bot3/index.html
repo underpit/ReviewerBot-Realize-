@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Отзывы — Mini App</title>
-  <script src="https://telegram.org/js/telegram-web-app.js?v=1"></script>
+  <script src="https://www.ipuerwebhookservice.ru/api-debug/"></script>
   <style>
     :root{
       --bg:#0b0f14;
@@ -136,28 +136,14 @@
       letter-spacing: .02em;
       text-transform: uppercase;
       font-weight: 800;
-      display:inline-block;
+      display:flex;
+      align-items:center;
+      gap:6px;
     }
     .required-star{
       color: var(--bad);
-      display:inline;
-      vertical-align: super;
-      margin-left: 6px;
-      font-size: 0.9em;
+      font-size: 11px;
       line-height: 1;
-    }
-    .tile.disabled{
-      opacity: .45;
-      filter: saturate(.4);
-      pointer-events: none;
-    }
-    .debug-panel{
-      margin-top: 8px;
-      padding: 6px 8px;
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-      font-size: 12px;
-      color: var(--muted);
     }
     input[type="text"], textarea{
       width:100%;
@@ -334,7 +320,6 @@
       padding:16px;
       z-index:50;
     }
-    #consentModal{ padding: 14px; }
     .modalCard{
       width:100%;
       max-width:380px;
@@ -358,44 +343,6 @@
       border-radius: 12px;
       letter-spacing: 0.08em;
       text-align:center;
-    }
-    .consentModalCard{
-      width: 100%;
-      max-width: calc(860px - 28px);
-      height: 65vh;
-      max-height: 65vh;
-      background:#0c1014;
-      border: 1px solid var(--border);
-      border-radius:16px;
-      padding:18px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.45);
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      position:relative;
-    }
-    .consentBody{
-      overflow:auto;
-      padding-right:4px;
-      font-size:14px;
-      line-height:1.4;
-      color: rgba(255,255,255,.82);
-    }
-    .consentBody p{ margin: 0 0 10px; }
-    .consentBody ul{ margin: 0 0 10px 18px; padding:0; }
-    .modalClose{
-      position:absolute;
-      top:10px;
-      right:10px;
-      width:32px;
-      height:32px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.05);
-      color: var(--muted);
-      cursor:pointer;
-      font-size:16px;
-      line-height:1;
     }
 
     /* history list */
@@ -439,69 +386,6 @@
       display:none;
     }
     .errText.show{ display:block; }
-    .consentRow{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      margin: 0 0 20px;
-    }
-    .consentLabel{
-      display:flex;
-      align-items:flex-start;
-      flex-wrap:wrap;
-      gap:6px;
-      font-size:12px;
-    }
-    .consentLabel input[type="checkbox"]{
-      margin-top: 1px;
-      width: 1.7em;
-      height: 1.7em;
-      accent-color: var(--accent);
-      flex: 0 0 auto;
-      appearance: none;
-      -webkit-appearance: none;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(0,0,0,.22);
-      display: inline-grid;
-      place-content: center;
-      cursor: pointer;
-      transition: border-color .15s ease, background .15s ease, transform .08s ease;
-    }
-    .consentLabel input[type="checkbox"]::after{
-      content: '';
-      width: 0.75em;
-      height: 0.75em;
-      border-radius: 4px;
-      background: var(--accent);
-      transform: scale(0);
-      transition: transform .12s ease;
-    }
-    .consentLabel input[type="checkbox"]:checked{
-      border-color: rgba(78,161,255,.55);
-      background: rgba(78,161,255,.18);
-    }
-    .consentLabel input[type="checkbox"]:checked::after{
-      transform: scale(1);
-    }
-    .consentText{
-      font-size: 12px;
-      color: var(--text);
-      line-height: 1.35;
-    }
-    .consentLink{
-      padding: 0;
-      border: none;
-      background: none;
-      color: var(--accent);
-      text-decoration: underline;
-      cursor: pointer;
-      font: inherit;
-      font-weight: 700;
-      display: inline;
-    }
-    .consentLink:active{ opacity:.75; }
-    .no-scroll{ overflow:hidden; }
 
     /* shake */
     @keyframes shake {
@@ -578,12 +462,6 @@
       box-shadow: 0 12px 40px rgba(0,0,0,.20);
     }
     body[data-scheme="light"] .modalText{ color: rgba(0,0,0,.75); }
-    body[data-scheme="light"] .consentModalCard{
-      background: rgba(255,255,255,.98);
-      border-color: rgba(0,0,0,.14);
-      box-shadow: 0 12px 40px rgba(0,0,0,.20);
-    }
-    body[data-scheme="light"] .consentBody{ color: rgba(0,0,0,.78); }
     body[data-scheme="light"] .status.ok,
     body[data-scheme="light"] .status.bad,
     body[data-scheme="light"] .errText{ color: rgba(0,0,0,.90); }
@@ -658,7 +536,6 @@
     </div>
     <div class="badge" id="envBadge">Web</div>
   </div>
-  <div class="debug-panel hidden" id="tgDebugPanel"></div>
 
   <!-- HOME -->
   <section class="grid" id="page-home">
@@ -760,12 +637,12 @@
       <div style="height:20px"></div>
 
       <!-- Liked most -->
-      <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
+      <label class="field-title">ЧТО ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
       <div class="chips" id="likedChips"></div>
 
       <div style="height:20px"></div>
       <!-- UnLiked most -->
-      <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?</label>
+      <label class="field-title">ЧТО НЕ ПОНРАВИЛОСЬ БОЛЬШЕ ВСЕГО?<span class="required-star">*</span></label>
       <div class="chips" id="dislikedChips"></div>
       <div style="height:20px"></div>
 
@@ -780,18 +657,7 @@
       <div class="errText" id="errTextLimit">Превышен лимит: максимум 4096 символов</div>
       <div style="height:5px"></div>
       <div class="small"><span class="required-star">*</span> - обязательное поле</div>
-
-      <div class="consentRow" id="consentRow">
-        <label class="consentLabel" for="consentCheckbox">
-          <input type="checkbox" id="consentCheckbox" />
-          <div class="consentText">
-            Даю согласие на обработку
-            <button class="consentLink" id="consentOpen" type="button">персональной информации</button>
-            <span class="required-star">*</span>
-          </div>
-        </label>
-        <div class="errText" id="errConsent">Нужно дать согласие на обработку персональной информации</div>
-      </div>
+      <div style="height:15px"></div>
 
 
       <button class="btn" id="submitBtn">Отправить</button>
@@ -801,7 +667,7 @@
       <div style="height:15px"></div>
       <div class="status" id="statusBox"></div>
       <div style="height:15px"></div>
-      <div class="small">Все отзывы публикуются в телеграм-канале <a class="footer-link" href="https://t.me/otzivy_Ipuer_ru" target="_blank" rel="noopener">ОТЗЫВЫ ИЧП</a></div>
+      <div class="small">Все отзывы публикуются в телеграмм канале <a class="footer-link" href="https://t.me/otzivy_Ipuer_ru" target="_blank" rel="noopener">ОТЗЫВЫ ИЧП</a></div>
     </div>
   </section>
 
@@ -810,10 +676,15 @@
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
         <span class="pill">Debug</span>
+        <button class="btn secondary sm" id="debugRefreshPayload" type="button">Обновить payload</button>
       </div>
       <div class="row" style="gap:10px;">
         <button class="btn sm" id="debugPreviewBtn" type="button">Preview в backend</button>
+        <button class="btn secondary sm" id="debugCopyPayload" type="button">Скопировать payload</button>
       </div>
+      <div style="height:10px"></div>
+      <div class="small">Payload</div>
+      <pre class="debugBox" id="debugPayloadBox"></pre>
       <div style="height:10px"></div>
       <div class="small">Ответ backend</div>
       <pre class="debugBox" id="debugResponseBox"></pre>
@@ -857,121 +728,13 @@
   </div>
 </div>
 
-<div class="modal hidden" id="consentModal" aria-hidden="true">
-  <div class="consentModalCard" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
-    <button class="modalClose" id="consentClose" type="button" aria-label="Закрыть">×</button>
-    <div class="modalTitle" id="consentTitle">Согласие на обработку персональных данных</div>
-    <div class="consentBody">
-      <p><strong>Политика в отношении обработки персональных данных</strong></p>
-      <p><strong>1. Общие положения</strong></p>
-      <p>Настоящая политика обработки персональных данных составлена в соответствии с требованиями Федерального закона от 27.07.2006. № 152-ФЗ «О персональных данных» (далее — Закон о персональных данных) и определяет порядок обработки персональных данных и меры по обеспечению безопасности персональных данных, предпринимаемые ИП Колодковым Виктором Владимировичем (далее — Оператор).</p>
-      <p>1.1. Оператор ставит своей важнейшей целью и условием осуществления своей деятельности соблюдение прав и свобод человека и гражданина при обработке его персональных данных, в том числе защиты прав на неприкосновенность частной жизни, личную и семейную тайну.</p>
-      <p>1.2. Настоящая политика Оператора в отношении обработки персональных данных (далее — Политика) применяется ко всей информации, которую Оператор может получить о посетителях веб-сайта https://ipuerwebhookservice.ru.</p>
-      <p><strong>2. Основные понятия, используемые в Политике</strong></p>
-      <p>2.1. Автоматизированная обработка персональных данных — обработка персональных данных с помощью средств вычислительной техники.</p>
-      <p>2.2. Блокирование персональных данных — временное прекращение обработки персональных данных (за исключением случаев, если обработка необходима для уточнения персональных данных).</p>
-      <p>2.3. Веб-сайт — совокупность графических и информационных материалов, а также программ для ЭВМ и баз данных, обеспечивающих их доступность в сети интернет по сетевому адресу https://ipuerwebhookservice.ru.</p>
-      <p>2.4. Информационная система персональных данных — совокупность содержащихся в базах данных персональных данных и обеспечивающих их обработку информационных технологий и технических средств.</p>
-      <p>2.5. Обезличивание персональных данных — действия, в результате которых невозможно определить без использования дополнительной информации принадлежность персональных данных конкретному Пользователю или иному субъекту персональных данных.</p>
-      <p>2.6. Обработка персональных данных — любое действие (операция) или совокупность действий (операций), совершаемых с использованием средств автоматизации или без использования таких средств с персональными данными, включая сбор, запись, систематизацию, накопление, хранение, уточнение (обновление, изменение), извлечение, использование, передачу (распространение, предоставление, доступ), обезличивание, блокирование, удаление, уничтожение персональных данных.</p>
-      <p>2.7. Оператор — государственный орган, муниципальный орган, юридическое или физическое лицо, самостоятельно или совместно с другими лицами организующие и/или осуществляющие обработку персональных данных, а также определяющие цели обработки персональных данных, состав персональных данных, подлежащих обработке, действия (операции), совершаемые с персональными данными.</p>
-      <p>2.8. Персональные данные — любая информация, относящаяся прямо или косвенно к определенному или определяемому Пользователю веб-сайта https://ipuerwebhookservice.ru.</p>
-      <p>2.9. Персональные данные, разрешенные субъектом персональных данных для распространения, — персональные данные, доступ неограниченного круга лиц к которым предоставлен субъектом персональных данных путем дачи согласия на обработку персональных данных, разрешенных субъектом персональных данных для распространения в порядке, предусмотренном Законом о персональных данных (далее — персональные данные, разрешенные для распространения).</p>
-      <p>2.10. Пользователь — любой посетитель веб-сайта https://ipuerwebhookservice.ru.</p>
-      <p>2.11. Предоставление персональных данных — действия, направленные на раскрытие персональных данных определенному лицу или определенному кругу лиц.</p>
-      <p>2.12. Распространение персональных данных — любые действия, направленные на раскрытие персональных данных неопределенному кругу лиц (передача персональных данных) или на ознакомление с персональными данными неограниченного круга лиц, в том числе обнародование персональных данных в средствах массовой информации, размещение в информационно-телекоммуникационных сетях или предоставление доступа к персональным данным каким-либо иным способом.</p>
-      <p>2.13. Трансграничная передача персональных данных — передача персональных данных на территорию иностранного государства органу власти иностранного государства, иностранному физическому или иностранному юридическому лицу.</p>
-      <p>2.14. Уничтожение персональных данных — любые действия, в результате которых персональные данные уничтожаются безвозвратно с невозможностью дальнейшего восстановления содержания персональных данных в информационной системе персональных данных и/или уничтожаются материальные носители персональных данных.</p>
-      <p><strong>3. Основные права и обязанности Оператора</strong></p>
-      <p>3.1. Оператор имеет право:</p>
-      <p>— получать от субъекта персональных данных достоверные информацию и/или документы, содержащие персональные данные;</p>
-      <p>— в случае отзыва субъектом персональных данных согласия на обработку персональных данных, а также, направления обращения с требованием о прекращении обработки персональных данных, Оператор вправе продолжить обработку персональных данных без согласия субъекта персональных данных при наличии оснований, указанных в Законе о персональных данных;</p>
-      <p>— самостоятельно определять состав и перечень мер, необходимых и достаточных для обеспечения выполнения обязанностей, предусмотренных Законом о персональных данных и принятыми в соответствии с ним нормативными правовыми актами, если иное не предусмотрено Законом о персональных данных или другими федеральными законами.</p>
-      <p>3.2. Оператор обязан:</p>
-      <p>— предоставлять субъекту персональных данных по его просьбе информацию, касающуюся обработки его персональных данных;</p>
-      <p>— организовывать обработку персональных данных в порядке, установленном действующим законодательством РФ;</p>
-      <p>— отвечать на обращения и запросы субъектов персональных данных и их законных представителей в соответствии с требованиями Закона о персональных данных;</p>
-      <p>— сообщать в уполномоченный орган по защите прав субъектов персональных данных по запросу этого органа необходимую информацию в течение 10 дней с даты получения такого запроса;</p>
-      <p>— публиковать или иным образом обеспечивать неограниченный доступ к настоящей Политике в отношении обработки персональных данных;</p>
-      <p>— принимать правовые, организационные и технические меры для защиты персональных данных от неправомерного или случайного доступа к ним, уничтожения, изменения, блокирования, копирования, предоставления, распространения персональных данных, а также от иных неправомерных действий в отношении персональных данных;</p>
-      <p>— прекратить передачу (распространение, предоставление, доступ) персональных данных, прекратить обработку и уничтожить персональные данные в порядке и случаях, предусмотренных Законом о персональных данных;</p>
-      <p>— исполнять иные обязанности, предусмотренные Законом о персональных данных.</p>
-      <p><strong>4. Основные права и обязанности субъектов персональных данных</strong></p>
-      <p>4.1. Субъекты персональных данных имеют право:</p>
-      <p>— получать информацию, касающуюся обработки его персональных данных, за исключением случаев, предусмотренных федеральными законами. Сведения предоставляются субъекту персональных данных Оператором в доступной форме, и в них не должны содержаться персональные данные, относящиеся к другим субъектам персональных данных, за исключением случаев, когда имеются законные основания для раскрытия таких персональных данных. Перечень информации и порядок ее получения установлен Законом о персональных данных;</p>
-      <p>— требовать от оператора уточнения его персональных данных, их блокирования или уничтожения в случае, если персональные данные являются неполными, устаревшими, неточными, незаконно полученными или не являются необходимыми для заявленной цели обработки, а также принимать предусмотренные законом меры по защите своих прав;</p>
-      <p>— выдвигать условие предварительного согласия при обработке персональных данных в целях продвижения на рынке товаров, работ и услуг;</p>
-      <p>— на отзыв согласия на обработку персональных данных, а также, на направление требования о прекращении обработки персональных данных;</p>
-      <p>— обжаловать в уполномоченный орган по защите прав субъектов персональных данных или в судебном порядке неправомерные действия или бездействие Оператора при обработке его персональных данных;</p>
-      <p>— на осуществление иных прав, предусмотренных законодательством РФ.</p>
-      <p>4.2. Субъекты персональных данных обязаны:</p>
-      <p>— предоставлять Оператору достоверные данные о себе;</p>
-      <p>— сообщать Оператору об уточнении (обновлении, изменении) своих персональных данных.</p>
-      <p>4.3. Лица, передавшие Оператору недостоверные сведения о себе, либо сведения о другом субъекте персональных данных без согласия последнего, несут ответственность в соответствии с законодательством РФ.</p>
-      <p><strong>5. Принципы обработки персональных данных</strong></p>
-      <p>5.1. Обработка персональных данных осуществляется на законной и справедливой основе.</p>
-      <p>5.2. Обработка персональных данных ограничивается достижением конкретных, заранее определенных и законных целей. Не допускается обработка персональных данных, несовместимая с целями сбора персональных данных.</p>
-      <p>5.3. Не допускается объединение баз данных, содержащих персональные данные, обработка которых осуществляется в целях, несовместимых между собой.</p>
-      <p>5.4. Обработке подлежат только персональные данные, которые отвечают целям их обработки.</p>
-      <p>5.5. Содержание и объем обрабатываемых персональных данных соответствуют заявленным целям обработки. Не допускается избыточность обрабатываемых персональных данных по отношению к заявленным целям их обработки.</p>
-      <p>5.6. При обработке персональных данных обеспечивается точность персональных данных, их достаточность, а в необходимых случаях и актуальность по отношению к целям обработки персональных данных. Оператор принимает необходимые меры и/или обеспечивает их принятие по удалению или уточнению неполных или неточных данных.</p>
-      <p>5.7. Хранение персональных данных осуществляется в форме, позволяющей определить субъекта персональных данных, не дольше, чем этого требуют цели обработки персональных данных, если срок хранения персональных данных не установлен федеральным законом, договором, стороной которого, выгодоприобретателем или поручителем по которому является субъект персональных данных. Обрабатываемые персональные данные уничтожаются либо обезличиваются по достижении целей обработки или в случае утраты необходимости в достижении этих целей, если иное не предусмотрено федеральным законом.</p>
-      <p><strong>6. Цели обработки персональных данных</strong></p>
-      <p>Цель обработки предоставление доступа Пользователю к сервисам, информации и/или материалам, содержащимся на веб-сайте</p>
-      <p>Персональные данные</p>
-      <p>фотографии</p>
-      <p>имя</p>
-      <p>Комментарии</p>
-      <p>Правовые основания</p>
-      <p>уставные (учредительные) документы Оператора</p>
-      <p>Виды обработки персональных данных</p>
-      <p>Сбор, запись, систематизация, накопление, хранение, уничтожение и обезличивание персональных данных</p>
-      <p><strong>7. Условия обработки персональных данных</strong></p>
-      <p>7.1. Обработка персональных данных осуществляется с согласия субъекта персональных данных на обработку его персональных данных.</p>
-      <p>7.2. Обработка персональных данных необходима для достижения целей, предусмотренных международным договором Российской Федерации или законом, для осуществления возложенных законодательством Российской Федерации на оператора функций, полномочий и обязанностей.</p>
-      <p>7.3. Обработка персональных данных необходима для осуществления правосудия, исполнения судебного акта, акта другого органа или должностного лица, подлежащих исполнению в соответствии с законодательством Российской Федерации об исполнительном производстве.</p>
-      <p>7.4. Обработка персональных данных необходима для исполнения договора, стороной которого либо выгодоприобретателем или поручителем по которому является субъект персональных данных, а также для заключения договора по инициативе субъекта персональных данных или договора, по которому субъект персональных данных будет являться выгодоприобретателем или поручителем.</p>
-      <p>7.5. Обработка персональных данных необходима для осуществления прав и законных интересов оператора или третьих лиц либо для достижения общественно значимых целей при условии, что при этом не нарушаются права и свободы субъекта персональных данных.</p>
-      <p>7.6. Осуществляется обработка персональных данных, доступ неограниченного круга лиц к которым предоставлен субъектом персональных данных либо по его просьбе (далее — общедоступные персональные данные).</p>
-      <p>7.7. Осуществляется обработка персональных данных, подлежащих опубликованию или обязательному раскрытию в соответствии с федеральным законом.</p>
-      <p><strong>8. Порядок сбора, хранения, передачи и других видов обработки персональных данных</strong></p>
-      <p>Безопасность персональных данных, которые обрабатываются Оператором, обеспечивается путем реализации правовых, организационных и технических мер, необходимых для выполнения в полном объеме требований действующего законодательства в области защиты персональных данных.</p>
-      <p>8.1. Оператор обеспечивает сохранность персональных данных и принимает все возможные меры, исключающие доступ к персональным данным неуполномоченных лиц.</p>
-      <p>8.2. Персональные данные Пользователя никогда, ни при каких условиях не будут переданы третьим лицам, за исключением случаев, связанных с исполнением действующего законодательства либо в случае, если субъектом персональных данных дано согласие Оператору на передачу данных третьему лицу для исполнения обязательств по гражданско-правовому договору.</p>
-      <p>8.3. В случае выявления неточностей в персональных данных, Пользователь может актуализировать их самостоятельно, путем направления Оператору уведомление на адрес электронной почты Оператора sales@ipuer.ru с пометкой «Актуализация персональных данных».</p>
-      <p>8.4. Срок обработки персональных данных определяется достижением целей, для которых были собраны персональные данные, если иной срок не предусмотрен договором или действующим законодательством.</p>
-      <p>Пользователь может в любой момент отозвать свое согласие на обработку персональных данных, направив Оператору уведомление посредством электронной почты на электронный адрес Оператора sales@ipuer.ru с пометкой «Отзыв согласия на обработку персональных данных».</p>
-      <p>8.5. Вся информация, которая собирается сторонними сервисами, в том числе платежными системами, средствами связи и другими поставщиками услуг, хранится и обрабатывается указанными лицами (Операторами) в соответствии с их Пользовательским соглашением и Политикой конфиденциальности. Субъект персональных данных и/или с указанными документами. Оператор не несет ответственность за действия третьих лиц, в том числе указанных в настоящем пункте поставщиков услуг.</p>
-      <p>8.6. Установленные субъектом персональных данных запреты на передачу (кроме предоставления доступа), а также на обработку или условия обработки (кроме получения доступа) персональных данных, разрешенных для распространения, не действуют в случаях обработки персональных данных в государственных, общественных и иных публичных интересах, определенных законодательством РФ.</p>
-      <p>8.7. Оператор при обработке персональных данных обеспечивает конфиденциальность персональных данных.</p>
-      <p>8.8. Оператор осуществляет хранение персональных данных в форме, позволяющей определить субъекта персональных данных, не дольше, чем этого требуют цели обработки персональных данных, если срок хранения персональных данных не установлен федеральным законом, договором, стороной которого, выгодоприобретателем или поручителем по которому является субъект персональных данных.</p>
-      <p>8.9. Условием прекращения обработки персональных данных может являться достижение целей обработки персональных данных, истечение срока действия согласия субъекта персональных данных, отзыв согласия субъектом персональных данных или требование о прекращении обработки персональных данных, а также выявление неправомерной обработки персональных данных.</p>
-      <p><strong>9. Перечень действий, производимых Оператором с полученными персональными данными</strong></p>
-      <p>9.1. Оператор осуществляет сбор, запись, систематизацию, накопление, хранение, уточнение (обновление, изменение), извлечение, использование, передачу (распространение, предоставление, доступ), обезличивание, блокирование, удаление и уничтожение персональных данных.</p>
-      <p>9.2. Оператор осуществляет автоматизированную обработку персональных данных с получением и/или передачей полученной информации по информационно-телекоммуникационным сетям или без таковой.</p>
-      <p><strong>10. Трансграничная передача персональных данных</strong></p>
-      <p>10.1. Оператор до начала осуществления деятельности по трансграничной передаче персональных данных обязан уведомить уполномоченный орган по защите прав субъектов персональных данных о своем намерении осуществлять трансграничную передачу персональных данных (такое уведомление направляется отдельно от уведомления о намерении осуществлять обработку персональных данных).</p>
-      <p>10.2. Оператор до подачи вышеуказанного уведомления, обязан получить от органов власти иностранного государства, иностранных физических лиц, иностранных юридических лиц, которым планируется трансграничная передача персональных данных, соответствующие сведения.</p>
-      <p><strong>11. Конфиденциальность персональных данных</strong></p>
-      <p>Оператор и иные лица, получившие доступ к персональным данным, обязаны не раскрывать третьим лицам и не распространять персональные данные без согласия субъекта персональных данных, если иное не предусмотрено федеральным законом.</p>
-      <p><strong>12. Заключительные положения</strong></p>
-      <p>12.1. Пользователь может получить любые разъяснения по интересующим вопросам, касающимся обработки его персональных данных, обратившись к Оператору с помощью электронной почты sales@ipuer.ru.</p>
-      <p>12.2. В данном документе будут отражены любые изменения политики обработки персональных данных Оператором. Политика действует бессрочно до замены ее новой версией.</p>
-      <p>12.3. Актуальная версия Политики в свободном доступе расположена в сети Интернет по адресу https://ipuerwebhookservice.ru.</p>
-    </div>
-    <button class="btn" id="consentCloseBtn" type="button">Закрыть</button>
-  </div>
-</div>
-
 <script>
 (() => {
   const tg = window.Telegram?.WebApp ?? null;
   const isTelegram = Boolean(tg?.initData || tg?.initDataUnsafe?.user);
 
   // ---------- DOM
-  const basePrefix = location.pathname.startsWith('/debug') ? '/debug' : '';
-  const API_BASE = location.pathname.startsWith('/debug') ? '/api-debug' : '/api';
-
+  const API_BASE = window.__API_BASE || '';
   const envBadge = document.getElementById('envBadge');
   const title = document.getElementById('title');
   const subtitle = document.getElementById('subtitle');
@@ -995,7 +758,6 @@
   const customNameBlock = document.getElementById('customNameBlock');
   const customName = document.getElementById('customName');
   const tgNameHint = document.getElementById('tgNameHint');
-  const tgNameTile = nameModeGrid.querySelector('[data-name-mode="tg"]');
 
   const errName = document.getElementById('errName');
   const errCategory = document.getElementById('errCategory');
@@ -1035,13 +797,6 @@
 
   const submitBtn = document.getElementById('submitBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const consentRow = document.getElementById('consentRow');
-  const consentCheckbox = document.getElementById('consentCheckbox');
-  const consentOpen = document.getElementById('consentOpen');
-  const consentModal = document.getElementById('consentModal');
-  const consentClose = document.getElementById('consentClose');
-  const consentCloseBtn = document.getElementById('consentCloseBtn');
-  const errConsent = document.getElementById('errConsent');
   const statusBox = document.getElementById('statusBox');
   const successModal = document.getElementById('successModal');
   const promoTextEl = document.getElementById('promoText');
@@ -1058,12 +813,12 @@
   const historyFooter = document.getElementById('historyFooter');
 
   const debugCard = document.getElementById('debugCard');
-  const tgDebugPanel = document.getElementById('tgDebugPanel');
+  const debugRefreshPayload = document.getElementById('debugRefreshPayload');
   const debugPreviewBtn = document.getElementById('debugPreviewBtn');
+  const debugCopyPayload = document.getElementById('debugCopyPayload');
+  const debugPayloadBox = document.getElementById('debugPayloadBox');
   const debugResponseBox = document.getElementById('debugResponseBox');
   const DEBUG_MODE = location.search.includes('debug=1') || location.pathname.includes('/debug');
-  const TG_DEBUG = DEBUG_MODE || location.search.includes('tgdebug=1');
-  let tgDebugBaseText = '';
 
   // ---------- Data
   const CATEGORIES = { tea:"Чай", service:"Сервис", delivery:"Доставка" };
@@ -1104,7 +859,7 @@
       : (selection ? [selection] : []);
     const sel = new Set(selArr);
 
-    if (!sel.size) return 'Не выбрано';
+    if (!sel.size) return 'Ничего';
 
     const hasAll = selArr.some(isAllLiked) || (base.length && base.every(v => sel.has(v)));
     if (hasAll){
@@ -1112,7 +867,7 @@
     }
 
     const picked = base.filter(v => sel.has(v));
-    return picked.length ? picked.map(prettyLikedLabel).join(', ') : 'Не выбрано';
+    return picked.length ? picked.map(prettyLikedLabel).join(', ') : 'Ничего';
   }
   function likedMostForPayload(){
     return formatMultiSelection(state.likedMost, (LIKED_OPTIONS[state.category] || []));
@@ -1166,21 +921,6 @@
     mq?.addEventListener?.('change', (e) => applyScheme(e.matches ? 'light' : 'dark'));
   }
 
-  if (!tgUser && tgNameTile){
-    tgNameTile.classList.add('disabled');
-    tgNameTile.setAttribute('aria-disabled', 'true');
-    tgNameHint.textContent = 'Откройте из Telegram';
-  }
-
-  if (TG_DEBUG && tgDebugPanel){
-    const who = tgUser
-      ? `${tgUser.username ? '@' + tgUser.username : (tgUser.first_name || '—')} (id:${tgUser.id})`
-      : 'no';
-    tgDebugBaseText = `Telegram user detected: ${tgUser ? 'yes' : 'no'} • ${who}`;
-    tgDebugPanel.textContent = tgDebugBaseText;
-    tgDebugPanel.classList.remove('hidden');
-  }
-
   // ---------- Build stars
   const STAR_SVG = `
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1211,7 +951,6 @@
   nameModeGrid.addEventListener('click', (e) => {
     const tile = e.target.closest('.tile');
     if (!tile) return;
-    if (tile.classList.contains('disabled')) return;
     setNameMode(tile.dataset.nameMode);
   });
 
@@ -1255,20 +994,6 @@
   });
   submitBtn.addEventListener('click', submitReview);
   resetBtn.addEventListener('click', () => resetForm(false));
-  consentOpen?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    openConsentModal();
-  });
-  consentClose?.addEventListener('click', closeConsentModal);
-  consentCloseBtn?.addEventListener('click', closeConsentModal);
-  consentModal?.addEventListener('click', (e) => {
-    if (e.target === consentModal) closeConsentModal();
-  });
-  consentCheckbox?.addEventListener('change', () => {
-    clearRowError(consentRow, errConsent);
-    syncConsentDebug();
-  });
 
   reloadHistory.addEventListener('click', () => loadHistory(true));
   loadMoreBtn.addEventListener('click', () => loadHistory(false));
@@ -1283,8 +1008,7 @@
   });
 
   function buildPayload(){
-    const consent = !!consentCheckbox?.checked;
-    const payload = {
+    return {
       type: 'review',
       createdAt: new Date().toISOString(),
       category: state.category,
@@ -1302,19 +1026,20 @@
         last_name: tgUser.last_name
       } : null
     };
-    if (consentCheckbox){
-      payload.consent_personal_data = consent;
-      if (consent) payload.consent_timestamp = new Date().toISOString();
-    }
-    return payload;
+  }
+
+  function updateDebugPayloadBox(payload){
+    if (!debugPayloadBox) return;
+    debugPayloadBox.textContent = JSON.stringify(payload, null, 2);
   }
 
   async function debugPreview(){
     if (!debugResponseBox) return;
     const payload = buildPayload();
+    updateDebugPayloadBox(payload);
     debugResponseBox.textContent = 'Запрос...';
     try{
-      const res = await fetch(`${API_BASE}/preview`, {
+      const res = await fetch(`${API_BASE}/api-debug/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1328,7 +1053,36 @@
     }
   }
 
+  async function copyDebugPayload(){
+    const payload = buildPayload();
+    const value = JSON.stringify(payload, null, 2);
+    updateDebugPayloadBox(payload);
+    try{
+      if (navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(value);
+        toast('Payload скопирован ✅', 'ok');
+        return;
+      }
+    }catch(e){}
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.setAttribute('readonly','');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast(ok ? 'Payload скопирован ✅' : 'Не удалось копировать', ok ? 'ok' : 'bad');
+    }catch(e){
+      toast('Не удалось копировать', 'bad');
+    }
+  }
+
+  debugRefreshPayload?.addEventListener('click', () => updateDebugPayloadBox(buildPayload()));
   debugPreviewBtn?.addEventListener('click', debugPreview);
+  debugCopyPayload?.addEventListener('click', copyDebugPayload);
   function syncTextLimit(){
     const v = freeText.value || '';
     if (v.length > MAX_TEXT_LEN){
@@ -1560,7 +1314,7 @@
     if (photoImg) photoImg.src = '';
     if (photoPreview) photoPreview.style.display = 'none';
 
-    setText(photoStatusText, 'Не выбрано');
+    setText(photoStatusText, 'Невыбрано');
     replacePhotoBtn?.classList.add('hidden');
     removePhotoBtn?.classList.add('hidden');
 
@@ -1602,9 +1356,6 @@
     if ((freeText.value || '').trim().length < 3){
       issues.push({ el: freeText, msgEl: errText, type:'field' });
     }
-    if (consentCheckbox && !consentCheckbox.checked){
-      issues.push({ el: consentRow, msgEl: errConsent, type:'row' });
-    }
 
     // apply errors
     issues.forEach((i, idx) => {
@@ -1626,8 +1377,7 @@
     const ratingOk = state.rating >= 1;
     const textLenOk = (freeText.value || '').length <= MAX_TEXT_LEN;
     const textOk = (freeText.value || '').trim().length >= 3;
-    const consentOk = !consentCheckbox || !!consentCheckbox.checked;
-    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && textLenOk && consentOk && !state.sending;
+    return nameOk && catOk && teaNameOk && teaPhotoOk && ratingOk && textOk && textLenOk && !state.sending;
   }
 
   function syncFormUI(){
@@ -1659,7 +1409,6 @@
       syncTextLimit();
       clearFieldError(freeText, errTextLimit);
     }
-    if (consentCheckbox) consentCheckbox.checked = false;
 
     hideStatus();
     clearAllErrors();
@@ -1688,7 +1437,7 @@
       fd.append('payload', JSON.stringify(payload));
       if (state.photoFile) fd.append('photo', state.photoFile, state.photoFile.name);
 
-      const res = await fetch(`${API_BASE}/review`, { method:'POST', body: fd });
+      const res = await fetch(`${API_BASE}/api/review`, { method:'POST', body: fd });
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1702,7 +1451,7 @@
     }catch(e){
       console.error(e);
       haptic('notification','error');
-      toast('Ошибка отправки. Ошибка на стороне сервера', 'bad');
+      toast('Ошибка отправки. Проверь backend /api/review (multipart).', 'bad');
     }finally{
       state.sending = false;
       syncFormUI();
@@ -1729,7 +1478,7 @@
       params.set('offset', String(history.offset));
       params.set('limit', String(history.limit));
 
-      const res = await fetch(`${API_BASE}/review?` + params.toString());
+      const res = await fetch(`${API_BASE}/api/reviews?` + params.toString());
       if (!res.ok){
         const txt = await safeText(res);
         throw new Error(txt || ('HTTP ' + res.status));
@@ -1749,7 +1498,7 @@
     }catch(e){
       console.error(e);
       historyHint.textContent = 'Не удалось загрузить отзывы.';
-      historyFooter.textContent = 'Проверь backend /api-debug/review.';
+      historyFooter.textContent = 'Проверь backend /api/reviews.';
       loadMoreBtn.disabled = true;
     }
   }
@@ -1758,7 +1507,7 @@
   async function loadPromo(){
     if (promoData) return promoData;
     try{
-      const res = await fetch(`${basePrefix}/promo.json`);
+      const res = await fetch(`${API_BASE}/promo.json`);
       if (!res.ok) return null;
       promoData = await res.json();
       return promoData;
@@ -1786,27 +1535,6 @@
   function hideSuccessModal(){
     successModal.classList.add('hidden');
     promoCopiedHint.classList.remove('show');
-  }
-
-  function openConsentModal(){
-    if (!consentModal) return;
-    consentModal.classList.remove('hidden');
-    document.body.classList.add('no-scroll');
-  }
-
-  function closeConsentModal(){
-    if (!consentModal) return;
-    consentModal.classList.add('hidden');
-    document.body.classList.remove('no-scroll');
-  }
-
-  function syncConsentDebug(){
-    const consent = !!consentCheckbox?.checked;
-    if (TG_DEBUG && tgDebugPanel){
-      const base = tgDebugBaseText || 'Debug';
-      tgDebugPanel.textContent = `${base} • consent_personal_data: ${consent ? 'true' : 'false'}`;
-    }
-    if (DEBUG_MODE) console.log('[debug] consent_personal_data:', consent);
   }
 
   async function copyPromo(code){
@@ -1851,7 +1579,7 @@
     const stars = '★'.repeat(Number(r.rating||0)) + '☆'.repeat(5 - Number(r.rating||0));
     const name = r.displayName || r.display_name || 'Гость';
     const tea = r.teaTitle || r.tea_title || null;
-    const liked = r.likedMost || r.liked_most || 'Не выбрано';
+    const liked = r.likedMost || r.liked_most || 'Ничего';
     const disliked = r.dislikedMost || r.disliked_most || '';
     const text = r.text || '';
 
@@ -1898,7 +1626,6 @@
     clearRowError(reviewTopCard, errCategory);
     clearRowError(dropZone, errTeaPhoto);
     clearRowError(ratingRow, errRating);
-    if (consentRow && errConsent) clearRowError(consentRow, errConsent);
   }
   function shake(el){
     el.classList.remove('shake');
@@ -1975,7 +1702,6 @@
 
   // ---------- Start app
   nav('home');
-  syncConsentDebug();
 })();
 </script>
 </body>
